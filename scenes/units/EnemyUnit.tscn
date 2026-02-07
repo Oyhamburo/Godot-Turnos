@@ -28,7 +28,7 @@ roughness = 0.25
 
 [node name="EnemyUnit" type="CharacterBody3D"]
 collision_layer = 2
-collision_mask = 1
+collision_mask = 3
 script = ExtResource("1_eu")
 
 [node name="CollisionShape3D" type="CollisionShape3D" parent="."]

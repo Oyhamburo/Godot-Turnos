@@ -3,11 +3,16 @@
 [ext_resource type="PackedScene" path="res://assets/KayKit_DungeonRemastered_1.1_FREE/Assets/gltf/floor_tile_grate.gltf" id="1_mesh"]
 
 [sub_resource type="BoxShape3D" id="BoxShape3D_floor"]
-size = Vector3(1, 0.1, 1)
+size = Vector3(4, 1.03, 3)
 
 [node name="FloorTileGrate" type="Node3D"]
+
 [node name="Mesh" parent="." instance=ExtResource("1_mesh")]
+
 [node name="Collision" type="StaticBody3D" parent="."]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.05, 0)
+collision_layer = 1
+collision_mask = 0
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.465, -0.5)
+
 [node name="CollisionShape3D" type="CollisionShape3D" parent="Collision"]
 shape = SubResource("BoxShape3D_floor")

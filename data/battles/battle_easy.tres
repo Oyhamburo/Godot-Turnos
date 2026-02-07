@@ -1,0 +1,18 @@
+[gd_resource type="Resource" script_class="BattleConfig" load_steps=6 format=3 uid="uid://battle_easy"]
+
+[ext_resource type="Script" path="res://scripts/data/BattleConfig.gd" id="1_script"]
+[ext_resource type="PackedScene" uid="uid://b1p1a1y3r0u1t" path="res://scenes/units/PlayerUnit.tscn" id="2_pscene"]
+[ext_resource type="PackedScene" uid="uid://07qrojli0rfu" path="res://scenes/units/EnemyBruto.tscn" id="3_bruto"]
+[ext_resource type="Resource" uid="uid://bat2n2xy8r2jl" path="res://data/units/enemy_bruto.tres" id="4_bruto_data"]
+[ext_resource type="PackedScene" uid="uid://e1n3nau1t0" path="res://scenes/units/EnemyUnit.tscn" id="5_common"]
+
+[resource]
+script = ExtResource("1_script")
+battle_name = "Batalla fácil"
+player_scene = ExtResource("2_pscene")
+players_count = 3
+enemy_bruto_count = 2
+enemy_bruto_scene = ExtResource("3_bruto")
+enemy_bruto_data = ExtResource("4_bruto_data")
+enemy_common_count = 1
+enemy_common_scene = ExtResource("5_common")

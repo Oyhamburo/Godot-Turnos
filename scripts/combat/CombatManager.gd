@@ -15,10 +15,14 @@ enum State { INIT, SELECTING_TARGET, ANIMATING, ENDED }
 @export var enemy_bruto_count: int = 2
 @export var enemy_bruto_scene: PackedScene
 @export var enemy_bruto_data: UnitData
+@export_group("Enemigos Esqueleto")
+@export var enemy_skeleton_count: int = 2
+@export var enemy_skeleton_scene: PackedScene
+@export var enemy_skeleton_data: UnitData
 @export_group("Enemigos comunes")
 @export var enemy_common_count: int = 1
 @export var enemy_common_scene: PackedScene
-@export var players_count: int = 3
+@export var players_count: int = 1
 @export var units_container_path: NodePath = NodePath("../Units")
 
 var players: Array[Unit] = []
@@ -52,18 +56,43 @@ func _emit_full_refresh() -> void:
 		emit_signal("turn_changed", current)
 
 func _spawn_units() -> void:
-	var units_container: Node3D = get_node(units_container_path)
+	var units_container: Node3D = get_node_or_null(units_container_path) as Node3D
+	if units_container == null:
+		push_error("CombatManager: units_container_path inválido o nodo no encontrado: %s" % str(units_container_path))
+		return
+
+	# Usar BattleConfig del menú si existe; si no, usar @export del Inspector.
+	var cfg: BattleConfig = BattleManager.current_battle_config
+	var p_scene: PackedScene = cfg.player_scene if cfg else player_scene
+	var p_count: int = cfg.players_count if cfg else players_count
+	var e_bruto_count: int = cfg.enemy_bruto_count if cfg else enemy_bruto_count
+	var e_bruto_scene: PackedScene = cfg.enemy_bruto_scene if cfg else enemy_bruto_scene
+	var e_bruto_data: UnitData = cfg.enemy_bruto_data if cfg else enemy_bruto_data
+	var e_common_count: int = cfg.enemy_common_count if cfg else enemy_common_count
+	var e_common_scene: PackedScene = cfg.enemy_common_scene if cfg else enemy_common_scene
+	var e_skeleton_count: int = cfg.enemy_skeleton_count if cfg else enemy_skeleton_count
+	var e_skeleton_scene: PackedScene = cfg.enemy_skeleton_scene if cfg else enemy_skeleton_scene
+	var e_skeleton_data: UnitData = cfg.enemy_skeleton_data if cfg else enemy_skeleton_data
+	if cfg:
+		BattleManager.clear_battle()
+
+	if p_scene == null:
+		push_error("CombatManager: player_scene no asignado (ni en BattleConfig ni en Inspector).")
+		return
 	players.clear()
 	enemies.clear()
 
-	# Formation settings (XZ plane)
+	# Formation settings (XZ plane). Superficie del piso en y=0; origen del personaje ~0.6 arriba.
+	const UNIT_SPAWN_Y := 0.6
 	var px := [-2.2, 0.0, 2.2]
 	var ex := [-2.2, 0.0, 2.2]
 	var pz := 2.5
 	var ez := -2.5
 
-	for i in range(players_count):
-		var u: Unit = player_scene.instantiate()
+	for i in range(p_count):
+		var u: Unit = p_scene.instantiate() as Unit
+		if u == null:
+			continue
 		u.display_name = "Player %d" % (i + 1)
 		u.max_hp = 34
 		u.hp = u.max_hp
@@ -71,21 +100,28 @@ func _spawn_units() -> void:
 		u.attack = 9
 		u.connect("died", Callable(self, "_on_unit_died"))
 		units_container.add_child(u)
-		u.global_position = Vector3(px[i % px.size()], 0.6, pz + float(i) / float(px.size()) * 1.8)
+		u.global_position = Vector3(px[i % px.size()], UNIT_SPAWN_Y, pz + float(i) / float(px.size()) * 1.8)
 		u.reset_start_pose()
 		players.append(u)
 
 	var enemy_colors := [Color(1, 0.35, 0.45), Color(0.9, 0.5, 0.2), Color(0.7, 0.35, 0.9), Color(0.3, 0.75, 0.5), Color(0.4, 0.6, 1.0)]
 	var spawns: Array[Dictionary] = []
-	for _i in range(enemy_bruto_count):
-		spawns.append({"scene": enemy_bruto_scene, "data": enemy_bruto_data})
-	for _i in range(enemy_common_count):
-		spawns.append({"scene": enemy_common_scene, "data": null})
+	for _i in range(e_bruto_count):
+		spawns.append({"scene": e_bruto_scene, "data": e_bruto_data})
+	for _i in range(e_common_count):
+		spawns.append({"scene": e_common_scene, "data": null})
+	for _i in range(e_skeleton_count):
+		spawns.append({"scene": e_skeleton_scene, "data": e_skeleton_data})
 	for i in range(spawns.size()):
 		var entry: Dictionary = spawns[i]
 		var scene: PackedScene = entry.scene
 		var data: UnitData = entry.data
-		var u: Unit = scene.instantiate()
+		if scene == null:
+			push_warning("CombatManager: escena de enemigo no asignada en el spawn %d. Saltando." % i)
+			continue
+		var u: Unit = scene.instantiate() as Unit
+		if u == null:
+			continue
 		if data:
 			u.data = data
 		else:
@@ -99,7 +135,7 @@ func _spawn_units() -> void:
 		if not data:
 			u.color = enemy_colors[i % enemy_colors.size()]
 			u.refresh_visual_color()
-		u.global_position = Vector3(ex[i % ex.size()], 0.6, ez - float(i) / float(ex.size()) * 1.8)
+		u.global_position = Vector3(ex[i % ex.size()], UNIT_SPAWN_Y, ez - float(i) / float(ex.size()) * 1.8)
 		u.reset_start_pose()
 		enemies.append(u)
 
@@ -119,9 +155,11 @@ func _sort_initiative(a: Unit, b: Unit) -> bool:
 func _get_alive_units() -> Array[Unit]:
 	var out: Array[Unit] = []
 	for u in players:
-		if u and u.alive: out.append(u)
+		if is_instance_valid(u) and u.alive:
+			out.append(u)
 	for u in enemies:
-		if u and u.alive: out.append(u)
+		if is_instance_valid(u) and u.alive:
+			out.append(u)
 	return out
 
 func _get_current_unit() -> Unit:
@@ -130,7 +168,7 @@ func _get_current_unit() -> Unit:
 	if turn_index < 0 or turn_index >= turn_order.size():
 		turn_index = 0
 	var u := turn_order[turn_index]
-	if u and u.alive:
+	if is_instance_valid(u) and u.alive:
 		return u
 	return null
 
@@ -205,7 +243,7 @@ func _pick_enemy_target() -> Unit:
 	# Simple AI: pick alive player with lowest HP (deterministic).
 	var best: Unit = null
 	for p in players:
-		if p and p.alive:
+		if is_instance_valid(p) and p.alive:
 			if best == null or p.hp < best.hp:
 				best = p
 	return best
@@ -235,7 +273,7 @@ func _end_turn() -> void:
 
 func _are_all_dead(arr: Array[Unit]) -> bool:
 	for u in arr:
-		if u and u.alive:
+		if is_instance_valid(u) and u.alive:
 			return false
 	return true
 
@@ -244,12 +282,12 @@ func _cleanup_dead_from_order() -> void:
 	var current := _get_current_unit()
 	var new_order: Array[Unit] = []
 	for u in turn_order:
-		if u and u.alive:
+		if is_instance_valid(u) and u.alive:
 			new_order.append(u)
 	turn_order = new_order
 
 	# Fix index: keep pointing to the same current unit when possible.
-	if current and current.alive:
+	if is_instance_valid(current) and current.alive:
 		turn_index = turn_order.find(current)
 		if turn_index == -1:
 			turn_index = 0

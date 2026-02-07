@@ -1,4 +1,4 @@
-[gd_scene load_steps=10 format=3 uid="uid://b4t7l3s3c3n3"]
+[gd_scene load_steps=11 format=3 uid="uid://b4t7l3s3c3n3"]
 
 [ext_resource type="Script" uid="uid://mmrdf5rvhs41" path="res://scripts/combat/CombatManager.gd" id="1_cm"]
 [ext_resource type="PackedScene" uid="uid://b1p1a1y3r0u1t" path="res://scenes/units/PlayerUnit.tscn" id="2_pu"]
@@ -8,7 +8,8 @@
 [ext_resource type="Theme" uid="uid://3c22hxeo5t8" path="res://ui/theme.tres" id="6_theme"]
 [ext_resource type="Script" uid="uid://bi0l4tdmadc2c" path="res://scripts/ui/BattleUI.gd" id="7_bui"]
 [ext_resource type="Environment" uid="uid://b7lq3cv6rbp6a" path="res://default_env.tres" id="8_env"]
-[ext_resource type="PackedScene" path="res://scenes/floors/FloorTileLarge.tscn" id="9_floor"]
+[ext_resource type="PackedScene" uid="uid://82rnex7vhhja" path="res://scenes/floors/FloorTileLarge.tscn" id="9_floor"]
+[ext_resource type="PackedScene" path="res://scenes/walls/Wall.tscn" id="10_wall"]
 
 [node name="Battle" type="Node3D"]
 
@@ -21,34 +22,18 @@ shadow_enabled = true
 environment = ExtResource("8_env")
 
 [node name="Floor" type="Node3D" parent="."]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.6, 0)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.05, 0)
 
 [node name="FloorTileLarge" parent="Floor" instance=ExtResource("9_floor")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.9, -6.0446978)
+transform = Transform3D(5.123696, 0, 0, 0, 1, 0, 0, 0, 4.2421227, 0, -1.7652154, 0)
 
-[node name="FloorTileLarge2" parent="Floor" instance=ExtResource("9_floor")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.9, -2.0446978)
+[node name="Walls" type="Node3D" parent="."]
 
-[node name="FloorTileLarge3" parent="Floor" instance=ExtResource("9_floor")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -4, -0.9, -6.0446978)
+[node name="Wall" parent="Walls" instance=ExtResource("10_wall")]
+transform = Transform3D(0, 0, 1, 0, 1.7511083, 0, -4.442548, 0, 0, -9.42112, -1.8814764, 0.00081539154)
 
-[node name="FloorTileLarge4" parent="Floor" instance=ExtResource("9_floor")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 4, -0.9, -6.0446978)
-
-[node name="FloorTileLarge5" parent="Floor" instance=ExtResource("9_floor")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.9, -10.044698)
-
-[node name="FloorTileLarge6" parent="Floor" instance=ExtResource("9_floor")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 4, -0.9, -2.0446978)
-
-[node name="FloorTileLarge7" parent="Floor" instance=ExtResource("9_floor")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 4, -0.9, -10.044698)
-
-[node name="FloorTileLarge8" parent="Floor" instance=ExtResource("9_floor")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -4, -0.9, -2.0446978)
-
-[node name="FloorTileLarge9" parent="Floor" instance=ExtResource("9_floor")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -4, -0.9, -10.044698)
+[node name="Wall2" parent="Walls" instance=ExtResource("10_wall")]
+transform = Transform3D(-6.029977, 0, 0.019925846, 0, 1.7511083, 0, -0.12104556, 0, -0.99262166, 1.9517384, -1.8814764, -9.020041)
 
 [node name="Camera3D" type="Camera3D" parent="."]
 transform = Transform3D(1, 0, 0, 0, 0.8525245, 0.52268726, 0, -0.52268726, 0.8525245, 0, 7.5, 11)
@@ -253,33 +238,3 @@ unique_name_in_owner = true
 custom_minimum_size = Vector2(260, 74)
 layout_mode = 2
 text = "Aceptar"
-
-[node name="Floor2" type="Node3D" parent="."]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.6, 12)
-
-[node name="FloorTileLarge" parent="Floor2" instance=ExtResource("9_floor")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.9, -6.0446978)
-
-[node name="FloorTileLarge2" parent="Floor2" instance=ExtResource("9_floor")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.9, -2.0446968)
-
-[node name="FloorTileLarge3" parent="Floor2" instance=ExtResource("9_floor")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -4, -0.9, -6.0446978)
-
-[node name="FloorTileLarge4" parent="Floor2" instance=ExtResource("9_floor")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 4, -0.9, -6.0446978)
-
-[node name="FloorTileLarge5" parent="Floor2" instance=ExtResource("9_floor")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.9, -10.044698)
-
-[node name="FloorTileLarge6" parent="Floor2" instance=ExtResource("9_floor")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 4, -0.9, -2.0446968)
-
-[node name="FloorTileLarge7" parent="Floor2" instance=ExtResource("9_floor")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 4, -0.9, -10.044698)
-
-[node name="FloorTileLarge8" parent="Floor2" instance=ExtResource("9_floor")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -4, -0.9, -2.0446968)
-
-[node name="FloorTileLarge9" parent="Floor2" instance=ExtResource("9_floor")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -4, -0.9, -10.044698)

@@ -6,7 +6,12 @@
 size = Vector3(1, 1, 0.2)
 
 [node name="Wall" type="Node3D"]
+
 [node name="Mesh" parent="." instance=ExtResource("1_mesh")]
+
 [node name="Collision" type="StaticBody3D" parent="."]
+collision_layer = 1
+collision_mask = 0
+
 [node name="CollisionShape3D" type="CollisionShape3D" parent="Collision"]
 shape = SubResource("BoxShape3D_wall")
