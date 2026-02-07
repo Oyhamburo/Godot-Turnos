@@ -1,18 +1,27 @@
-[gd_scene load_steps=10 format=3 uid="uid://b4t7l3s3c3n3"]
+[gd_scene load_steps=14 format=3 uid="uid://b4t7l3s3c3n3"]
 
-[ext_resource type="Script" path="res://scripts/combat/CombatManager.gd" id="1_cm"]
-[ext_resource type="PackedScene" path="res://scenes/units/PlayerUnit.tscn" id="2_pu"]
-[ext_resource type="PackedScene" path="res://scenes/units/EnemyUnit.tscn" id="3_eu"]
-[ext_resource type="Theme" path="res://ui/theme.tres" id="4_theme"]
-[ext_resource type="Script" path="res://scripts/ui/BattleUI.gd" id="5_bui"]
-[ext_resource type="Environment" path="res://default_env.tres" id="6_env"]
+[ext_resource type="Script" uid="uid://mmrdf5rvhs41" path="res://scripts/combat/CombatManager.gd" id="1_cm"]
+[ext_resource type="PackedScene" uid="uid://b1p1a1y3r0u1t" path="res://scenes/units/PlayerUnit.tscn" id="2_pu"]
+[ext_resource type="PackedScene" uid="uid://07qrojli0rfu" path="res://scenes/units/EnemyBruto.tscn" id="3_bruto"]
+[ext_resource type="Resource" uid="uid://bat2n2xy8r2jl" path="res://data/units/enemy_bruto.tres" id="4_bruto"]
+[ext_resource type="PackedScene" uid="uid://e1n3nau1n1t0" path="res://scenes/units/EnemyUnit.tscn" id="5_common"]
+[ext_resource type="Theme" uid="uid://3c22hxeo5t8" path="res://ui/theme.tres" id="6_theme"]
+[ext_resource type="Script" uid="uid://bi0l4tdmadc2c" path="res://scripts/ui/BattleUI.gd" id="7_bui"]
+[ext_resource type="Environment" uid="uid://b7lq3cv6rbp6a" path="res://default_env.tres" id="8_env"]
+[ext_resource type="Texture2D" uid="uid://fpaqoatr70wa" path="res://assets/KayKit_DungeonRemastered_1.1_FREE/Assets/textures/dungeon_texture.png" id="9_floor_tex"]
+[ext_resource type="Shader" uid="uid://4uuagb6oyt3v" path="res://shaders/floor_atlas.gdshader" id="10_floor_shader"]
+
+[sub_resource type="ShaderMaterial" id="FloorMaterial"]
+render_priority = 0
+shader = ExtResource("10_floor_shader")
+shader_parameter/albedo_tex = ExtResource("9_floor_tex")
+shader_parameter/block_col = 0
+shader_parameter/block_row = 0
+shader_parameter/repeat_x = 24.0
+shader_parameter/repeat_y = 24.0
 
 [sub_resource type="PlaneMesh" id="PlaneMesh_1"]
 size = Vector2(20, 20)
-
-[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_1"]
-albedo_color = Color(0.18, 0.32, 0.20, 1)
-roughness = 0.95
 
 [sub_resource type="BoxShape3D" id="BoxShape3D_1"]
 size = Vector3(20, 0.3, 20)
@@ -20,27 +29,24 @@ size = Vector3(20, 0.3, 20)
 [node name="Battle" type="Node3D"]
 
 [node name="DirectionalLight3D" type="DirectionalLight3D" parent="."]
-rotation = Vector3(-0.9, 0.65, 0)
+transform = Transform3D(0.7960838, -0.4740588, 0.37618992, 0, 0.62161, 0.7833269, -0.6051864, -0.62359387, 0.49485365, 0, 0, 0)
 light_energy = 1.2
 shadow_enabled = true
 
 [node name="WorldEnvironment" type="WorldEnvironment" parent="."]
-environment = ExtResource("6_env")
+environment = ExtResource("8_env")
 
 [node name="Floor" type="StaticBody3D" parent="."]
-collision_layer = 1
-collision_mask = 1
 
 [node name="FloorMesh" type="MeshInstance3D" parent="Floor"]
+material_override = SubResource("FloorMaterial")
 mesh = SubResource("PlaneMesh_1")
-material_override = SubResource("StandardMaterial3D_1")
 
 [node name="FloorCol" type="CollisionShape3D" parent="Floor"]
 shape = SubResource("BoxShape3D_1")
 
 [node name="Camera3D" type="Camera3D" parent="."]
-position = Vector3(0, 7.5, 11.0)
-rotation = Vector3(-0.55, 0, 0)
+transform = Transform3D(1, 0, 0, 0, 0.8525245, 0.52268726, 0, -0.52268726, 0.8525245, 0, 7.5, 11)
 fov = 55.0
 
 [node name="Units" type="Node3D" parent="."]
@@ -48,188 +54,197 @@ fov = 55.0
 [node name="CombatManager" type="Node" parent="."]
 script = ExtResource("1_cm")
 player_scene = ExtResource("2_pu")
-enemy_scene = ExtResource("3_eu")
+enemy_bruto_scene = ExtResource("3_bruto")
+enemy_bruto_data = ExtResource("4_bruto")
+enemy_common_count = 5
+enemy_common_scene = ExtResource("5_common")
 
 [node name="UI" type="CanvasLayer" parent="."]
 
 [node name="BattleUIRoot" type="Control" parent="UI"]
+layout_mode = 3
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
-theme = ExtResource("4_theme")
-script = ExtResource("5_bui")
+grow_horizontal = 2
+grow_vertical = 2
+theme = ExtResource("6_theme")
+script = ExtResource("7_bui")
 combat_manager_path = NodePath("../../CombatManager")
 camera_path = NodePath("../../Camera3D")
 
 [node name="Safe" type="MarginContainer" parent="UI/BattleUIRoot"]
-anchors_preset = 15
+layout_mode = 0
 anchor_right = 1.0
 anchor_bottom = 1.0
+mouse_filter = 2
 theme_override_constants/margin_left = 24
 theme_override_constants/margin_top = 24
 theme_override_constants/margin_right = 24
 theme_override_constants/margin_bottom = 24
-mouse_filter = 2
 
 [node name="VBox" type="VBoxContainer" parent="UI/BattleUIRoot/Safe"]
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
-add_theme_constant_override("separation", 16)
-mouse_filter = 2
+layout_mode = 2
 
 [node name="TimelinePanel" type="PanelContainer" parent="UI/BattleUIRoot/Safe/VBox"]
+layout_mode = 2
 size_flags_horizontal = 3
 
 [node name="TimelineMargin" type="MarginContainer" parent="UI/BattleUIRoot/Safe/VBox/TimelinePanel"]
+layout_mode = 2
+mouse_filter = 2
 theme_override_constants/margin_left = 12
 theme_override_constants/margin_top = 10
 theme_override_constants/margin_right = 12
 theme_override_constants/margin_bottom = 10
-mouse_filter = 2
 
 [node name="TimelineHBox" type="HBoxContainer" parent="UI/BattleUIRoot/Safe/VBox/TimelinePanel/TimelineMargin"]
 unique_name_in_owner = true
+layout_mode = 2
 size_flags_horizontal = 3
-add_theme_constant_override("separation", 10)
-mouse_filter = 2
 
 [node name="Middle" type="HBoxContainer" parent="UI/BattleUIRoot/Safe/VBox"]
+layout_mode = 2
 size_flags_vertical = 3
-add_theme_constant_override("separation", 16)
-mouse_filter = 2
 
 [node name="PlayersPanel" type="PanelContainer" parent="UI/BattleUIRoot/Safe/VBox/Middle"]
 custom_minimum_size = Vector2(360, 0)
+layout_mode = 2
 size_flags_vertical = 3
 
 [node name="PlayersMargin" type="MarginContainer" parent="UI/BattleUIRoot/Safe/VBox/Middle/PlayersPanel"]
+layout_mode = 2
+mouse_filter = 2
 theme_override_constants/margin_left = 14
 theme_override_constants/margin_top = 12
 theme_override_constants/margin_right = 14
 theme_override_constants/margin_bottom = 12
-mouse_filter = 2
 
 [node name="PlayersVBox" type="VBoxContainer" parent="UI/BattleUIRoot/Safe/VBox/Middle/PlayersPanel/PlayersMargin"]
-add_theme_constant_override("separation", 10)
-size_flags_horizontal = 3
+layout_mode = 2
 size_flags_vertical = 3
 mouse_filter = 2
 
 [node name="PlayersTitle" type="Label" parent="UI/BattleUIRoot/Safe/VBox/Middle/PlayersPanel/PlayersMargin/PlayersVBox"]
+layout_mode = 2
 text = "Aliados"
 horizontal_alignment = 1
-mouse_filter = 2
 
 [node name="PlayersList" type="VBoxContainer" parent="UI/BattleUIRoot/Safe/VBox/Middle/PlayersPanel/PlayersMargin/PlayersVBox"]
 unique_name_in_owner = true
-add_theme_constant_override("separation", 6)
-size_flags_horizontal = 3
+layout_mode = 2
 size_flags_vertical = 3
 mouse_filter = 2
 
 [node name="Spacer" type="Control" parent="UI/BattleUIRoot/Safe/VBox/Middle"]
+layout_mode = 2
 size_flags_horizontal = 3
 size_flags_vertical = 3
 mouse_filter = 2
 
 [node name="EnemiesPanel" type="PanelContainer" parent="UI/BattleUIRoot/Safe/VBox/Middle"]
 custom_minimum_size = Vector2(360, 0)
+layout_mode = 2
 size_flags_vertical = 3
 
 [node name="EnemiesMargin" type="MarginContainer" parent="UI/BattleUIRoot/Safe/VBox/Middle/EnemiesPanel"]
+layout_mode = 2
+mouse_filter = 2
 theme_override_constants/margin_left = 14
 theme_override_constants/margin_top = 12
 theme_override_constants/margin_right = 14
 theme_override_constants/margin_bottom = 12
-mouse_filter = 2
 
 [node name="EnemiesVBox" type="VBoxContainer" parent="UI/BattleUIRoot/Safe/VBox/Middle/EnemiesPanel/EnemiesMargin"]
-add_theme_constant_override("separation", 10)
-size_flags_horizontal = 3
+layout_mode = 2
 size_flags_vertical = 3
 mouse_filter = 2
 
 [node name="EnemiesTitle" type="Label" parent="UI/BattleUIRoot/Safe/VBox/Middle/EnemiesPanel/EnemiesMargin/EnemiesVBox"]
+layout_mode = 2
 text = "Enemigos (click para seleccionar)"
 horizontal_alignment = 1
-mouse_filter = 2
 
 [node name="EnemiesList" type="VBoxContainer" parent="UI/BattleUIRoot/Safe/VBox/Middle/EnemiesPanel/EnemiesMargin/EnemiesVBox"]
 unique_name_in_owner = true
-add_theme_constant_override("separation", 6)
-size_flags_horizontal = 3
+layout_mode = 2
 size_flags_vertical = 3
 mouse_filter = 2
 
 [node name="ActionPanel" type="PanelContainer" parent="UI/BattleUIRoot/Safe/VBox"]
+layout_mode = 2
 size_flags_horizontal = 3
 
 [node name="ActionMargin" type="MarginContainer" parent="UI/BattleUIRoot/Safe/VBox/ActionPanel"]
+layout_mode = 2
+mouse_filter = 2
 theme_override_constants/margin_left = 14
 theme_override_constants/margin_top = 12
 theme_override_constants/margin_right = 14
 theme_override_constants/margin_bottom = 12
-mouse_filter = 2
 
 [node name="ActionHBox" type="HBoxContainer" parent="UI/BattleUIRoot/Safe/VBox/ActionPanel/ActionMargin"]
-add_theme_constant_override("separation", 14)
-size_flags_horizontal = 3
+layout_mode = 2
 mouse_filter = 2
 
 [node name="TurnLabel" type="Label" parent="UI/BattleUIRoot/Safe/VBox/ActionPanel/ActionMargin/ActionHBox"]
 unique_name_in_owner = true
-text = "Turno: -"
+layout_mode = 2
 size_flags_horizontal = 3
-mouse_filter = 2
+text = "Turno: -"
 
 [node name="AttackButton" type="Button" parent="UI/BattleUIRoot/Safe/VBox/ActionPanel/ActionMargin/ActionHBox"]
 unique_name_in_owner = true
-text = "Atacar"
 custom_minimum_size = Vector2(180, 64)
+layout_mode = 2
+text = "Atacar"
 
 [node name="PassButton" type="Button" parent="UI/BattleUIRoot/Safe/VBox/ActionPanel/ActionMargin/ActionHBox"]
 unique_name_in_owner = true
-text = "Pasar"
 custom_minimum_size = Vector2(180, 64)
+layout_mode = 2
+text = "Pasar"
 
 [node name="EndDialog" type="Control" parent="UI/BattleUIRoot"]
 unique_name_in_owner = true
-anchors_preset = 15
+visible = false
+anchors_preset = 0
 anchor_right = 1.0
 anchor_bottom = 1.0
-visible = false
 
 [node name="EndDim" type="ColorRect" parent="UI/BattleUIRoot/EndDialog"]
-anchors_preset = 15
+layout_mode = 0
 anchor_right = 1.0
 anchor_bottom = 1.0
 color = Color(0, 0, 0, 0.6)
 
 [node name="EndCenter" type="CenterContainer" parent="UI/BattleUIRoot/EndDialog"]
-anchors_preset = 15
+layout_mode = 0
 anchor_right = 1.0
 anchor_bottom = 1.0
 
 [node name="EndPanel" type="PanelContainer" parent="UI/BattleUIRoot/EndDialog/EndCenter"]
 custom_minimum_size = Vector2(520, 0)
+layout_mode = 2
 
 [node name="EndMargin" type="MarginContainer" parent="UI/BattleUIRoot/EndDialog/EndCenter/EndPanel"]
+layout_mode = 2
 theme_override_constants/margin_left = 22
 theme_override_constants/margin_top = 20
 theme_override_constants/margin_right = 22
 theme_override_constants/margin_bottom = 20
 
 [node name="EndVBox" type="VBoxContainer" parent="UI/BattleUIRoot/EndDialog/EndCenter/EndPanel/EndMargin"]
-add_theme_constant_override("separation", 14)
-alignment = 1
+layout_mode = 2
 
 [node name="EndLabel" type="Label" parent="UI/BattleUIRoot/EndDialog/EndCenter/EndPanel/EndMargin/EndVBox"]
 unique_name_in_owner = true
+layout_mode = 2
 text = "¡Ganaste!"
 horizontal_alignment = 1
 
 [node name="EndAccept" type="Button" parent="UI/BattleUIRoot/EndDialog/EndCenter/EndPanel/EndMargin/EndVBox"]
 unique_name_in_owner = true
-text = "Aceptar"
 custom_minimum_size = Vector2(260, 74)
+layout_mode = 2
+text = "Aceptar"

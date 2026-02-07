@@ -1,0 +1,12 @@
+[gd_resource type="Resource" script_class="UnitData" load_steps=2 format=3 uid="uid://bat2n2xy8r2jl"]
+
+[ext_resource type="Script" uid="uid://6qt31kc823g4" path="res://scripts/data/UnitData.gd" id="1_script"]
+
+[resource]
+script = ExtResource("1_script")
+display_name = "Bruto"
+team = 1
+max_hp = 60
+speed = 6
+attack = 14
+color = Color(0.172549, 0.788235, 0.564706, 1)

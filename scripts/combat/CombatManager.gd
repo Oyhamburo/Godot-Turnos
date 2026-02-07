@@ -11,9 +11,14 @@ signal battle_ended(player_won: bool)
 enum State { INIT, SELECTING_TARGET, ANIMATING, ENDED }
 
 @export var player_scene: PackedScene
-@export var enemy_scene: PackedScene
+@export_group("Enemigos Bruto")
+@export var enemy_bruto_count: int = 2
+@export var enemy_bruto_scene: PackedScene
+@export var enemy_bruto_data: UnitData
+@export_group("Enemigos comunes")
+@export var enemy_common_count: int = 1
+@export var enemy_common_scene: PackedScene
 @export var players_count: int = 3
-@export var enemies_count: int = 3
 @export var units_container_path: NodePath = NodePath("../Units")
 
 var players: Array[Unit] = []
@@ -70,15 +75,30 @@ func _spawn_units() -> void:
 		u.reset_start_pose()
 		players.append(u)
 
-	for i in range(enemies_count):
-		var u: Unit = enemy_scene.instantiate()
-		u.display_name = "Enemy %d" % (i + 1)
-		u.max_hp = 28
-		u.hp = u.max_hp
-		u.speed = 11 - i
-		u.attack = 8
+	var enemy_colors := [Color(1, 0.35, 0.45), Color(0.9, 0.5, 0.2), Color(0.7, 0.35, 0.9), Color(0.3, 0.75, 0.5), Color(0.4, 0.6, 1.0)]
+	var spawns: Array[Dictionary] = []
+	for _i in range(enemy_bruto_count):
+		spawns.append({"scene": enemy_bruto_scene, "data": enemy_bruto_data})
+	for _i in range(enemy_common_count):
+		spawns.append({"scene": enemy_common_scene, "data": null})
+	for i in range(spawns.size()):
+		var entry: Dictionary = spawns[i]
+		var scene: PackedScene = entry.scene
+		var data: UnitData = entry.data
+		var u: Unit = scene.instantiate()
+		if data:
+			u.data = data
+		else:
+			u.display_name = "Enemy %d" % (i + 1)
+			u.max_hp = 28
+			u.hp = u.max_hp
+			u.speed = 11 - i
+			u.attack = 8
 		u.connect("died", Callable(self, "_on_unit_died"))
 		units_container.add_child(u)
+		if not data:
+			u.color = enemy_colors[i % enemy_colors.size()]
+			u.refresh_visual_color()
 		u.global_position = Vector3(ex[i % ex.size()], 0.6, ez - float(i) / float(ex.size()) * 1.8)
 		u.reset_start_pose()
 		enemies.append(u)

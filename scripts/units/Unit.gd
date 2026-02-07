@@ -6,6 +6,7 @@ signal died(unit: Unit)
 
 enum Team { PLAYER, ENEMY }
 
+@export var data: UnitData
 @export var display_name: String = "Unit"
 @export_enum("PLAYER", "ENEMY") var team: int = 0
 @export var max_hp: int = 30
@@ -27,6 +28,8 @@ var _mat: StandardMaterial3D
 var _base_color: Color
 
 func _ready() -> void:
+	if data:
+		_apply_data()
 	_start_position = global_position
 	_start_rotation = global_rotation
 
@@ -38,9 +41,25 @@ func _ready() -> void:
 		_mat = StandardMaterial3D.new()
 		visual.material_override = _mat
 
-	_base_color = _mat.albedo_color
+	_base_color = color
+	_mat.albedo_color = _base_color
 	selection_ring.visible = false
 	play_idle()
+
+func _apply_data() -> void:
+	display_name = data.display_name
+	team = data.team
+	max_hp = data.max_hp
+	hp = data.max_hp
+	speed = data.speed
+	attack = data.attack
+	stop_distance = data.stop_distance
+	color = data.color
+
+func refresh_visual_color() -> void:
+	if _mat:
+		_base_color = color
+		_mat.albedo_color = _base_color
 
 func reset_start_pose() -> void:
 	_start_position = global_position
