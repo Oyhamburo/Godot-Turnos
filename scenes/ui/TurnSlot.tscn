@@ -1,0 +1,30 @@
+[gd_scene load_steps=2 format=3 uid="uid://c5m3s7xk0a1tq"]
+
+[ext_resource type="Script" path="res://scripts/ui/TurnSlot.gd" id="1_8k2lq"]
+
+[node name="TurnSlot" type="PanelContainer"]
+custom_minimum_size = Vector2(160, 64)
+size_flags_horizontal = 3
+script = ExtResource("1_8k2lq")
+
+[node name="Margin" type="MarginContainer" parent="."]
+theme_override_constants/margin_left = 10
+theme_override_constants/margin_top = 8
+theme_override_constants/margin_right = 10
+theme_override_constants/margin_bottom = 8
+
+[node name="HBox" type="HBoxContainer" parent="Margin"]
+add_theme_constant_override("separation", 10)
+size_flags_horizontal = 3
+
+[node name="Marker" type="ColorRect" parent="Margin/HBox"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(10, 0)
+size_flags_vertical = 3
+color = Color(0.7, 0.7, 0.7, 1)
+
+[node name="NameLabel" type="Label" parent="Margin/HBox"]
+unique_name_in_owner = true
+size_flags_horizontal = 3
+text = "Unit"
+autowrap_mode = 3

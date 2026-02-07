@@ -1,0 +1,82 @@
+[gd_scene load_steps=3 format=3 uid="uid://c3s8l8xkq3g2m"]
+
+[ext_resource type="Script" path="res://scripts/ui/OptionsPanel.gd" id="1_3m3n2"]
+[ext_resource type="Theme" path="res://ui/theme.tres" id="2_them1"]
+
+[node name="OptionsPanel" type="Control"]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+theme = ExtResource("2_them1")
+script = ExtResource("1_3m3n2")
+
+[node name="Dim" type="ColorRect" parent="."]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+color = Color(0, 0, 0, 0.55)
+
+[node name="Center" type="CenterContainer" parent="."]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+
+[node name="Panel" type="PanelContainer" parent="Center"]
+custom_minimum_size = Vector2(720, 0)
+
+[node name="Margin" type="MarginContainer" parent="Center/Panel"]
+theme_override_constants/margin_left = 26
+theme_override_constants/margin_top = 24
+theme_override_constants/margin_right = 26
+theme_override_constants/margin_bottom = 24
+
+[node name="VBox" type="VBoxContainer" parent="Center/Panel/Margin"]
+add_theme_constant_override("separation", 18)
+size_flags_horizontal = 3
+
+[node name="Title" type="Label" parent="Center/Panel/Margin/VBox"]
+text = "Opciones"
+horizontal_alignment = 1
+
+[node name="Grid" type="GridContainer" parent="Center/Panel/Margin/VBox"]
+columns = 2
+add_theme_constant_override("h_separation", 18)
+add_theme_constant_override("v_separation", 14)
+size_flags_horizontal = 3
+
+[node name="ResolutionLabel" type="Label" parent="Center/Panel/Margin/VBox/Grid"]
+text = "Resolución"
+size_flags_horizontal = 3
+
+[node name="ResolutionOption" type="OptionButton" parent="Center/Panel/Margin/VBox/Grid"]
+unique_name_in_owner = true
+size_flags_horizontal = 3
+
+[node name="ModeLabel" type="Label" parent="Center/Panel/Margin/VBox/Grid"]
+text = "Modo de pantalla"
+size_flags_horizontal = 3
+
+[node name="ModeOption" type="OptionButton" parent="Center/Panel/Margin/VBox/Grid"]
+unique_name_in_owner = true
+size_flags_horizontal = 3
+
+[node name="MobileNote" type="Label" parent="Center/Panel/Margin/VBox"]
+unique_name_in_owner = true
+text = "Nota: En mobile, la resolución y el modo ventana suelen ser gestionados por el sistema."
+autowrap_mode = 3
+horizontal_alignment = 1
+visible = false
+
+[node name="Buttons" type="HBoxContainer" parent="Center/Panel/Margin/VBox"]
+add_theme_constant_override("separation", 14)
+size_flags_horizontal = 3
+
+[node name="ApplyButton" type="Button" parent="Center/Panel/Margin/VBox/Buttons"]
+unique_name_in_owner = true
+text = "Aplicar"
+size_flags_horizontal = 3
+
+[node name="BackButton" type="Button" parent="Center/Panel/Margin/VBox/Buttons"]
+unique_name_in_owner = true
+text = "Volver"
+size_flags_horizontal = 3

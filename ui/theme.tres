@@ -1,0 +1,31 @@
+[gd_resource type="Theme" format=3 uid="uid://d5h7n4e6xv1l0"]
+
+[resource]
+default_font_size = 30
+
+; Buttons
+Button/constants/h_separation = 10
+Button/constants/v_separation = 10
+Button/constants/h_padding = 26
+Button/constants/v_padding = 18
+Button/fonts/font = null
+Button/font_sizes/font_size = 30
+
+; Labels
+Label/fonts/font = null
+Label/font_sizes/font_size = 30
+
+; OptionButton
+OptionButton/constants/h_separation = 10
+OptionButton/constants/v_separation = 10
+OptionButton/constants/h_padding = 22
+OptionButton/constants/v_padding = 14
+OptionButton/font_sizes/font_size = 28
+
+; LineEdit
+LineEdit/constants/h_padding = 18
+LineEdit/constants/v_padding = 14
+LineEdit/font_sizes/font_size = 26
+
+; Panels
+PanelContainer/styles/panel = null

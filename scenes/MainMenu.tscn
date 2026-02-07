@@ -1,0 +1,58 @@
+[gd_scene load_steps=4 format=3 uid="uid://d4b1v3k5bap2s"]
+
+[ext_resource type="Script" uid="uid://csc3eixvf4q51" path="res://scripts/ui/MainMenu.gd" id="1_mm01"]
+[ext_resource type="Theme" uid="uid://3c22hxeo5t8" path="res://ui/theme.tres" id="2_them1"]
+[ext_resource type="PackedScene" uid="uid://c3s8l8xkq3g2m" path="res://scenes/ui/OptionsPanel.tscn" id="3_optp"]
+
+[node name="MainMenu" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+theme = ExtResource("2_them1")
+script = ExtResource("1_mm01")
+
+[node name="Background" type="ColorRect" parent="."]
+layout_mode = 0
+anchor_right = 1.0
+anchor_bottom = 1.0
+color = Color(0.07, 0.09, 0.11, 1)
+
+[node name="Safe" type="MarginContainer" parent="."]
+layout_mode = 0
+anchor_right = 1.0
+anchor_bottom = 1.0
+theme_override_constants/margin_left = 40
+theme_override_constants/margin_top = 40
+theme_override_constants/margin_right = 40
+theme_override_constants/margin_bottom = 40
+
+[node name="Center" type="CenterContainer" parent="Safe"]
+layout_mode = 2
+
+[node name="VBox" type="VBoxContainer" parent="Safe/Center"]
+layout_mode = 2
+
+[node name="Title" type="Label" parent="Safe/Center/VBox"]
+layout_mode = 2
+text = "Turnos 3D"
+horizontal_alignment = 1
+
+[node name="PlayButton" type="Button" parent="Safe/Center/VBox"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(520, 84)
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Jugar"
+
+[node name="OptionsButton" type="Button" parent="Safe/Center/VBox"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(520, 84)
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Opciones"
+
+[node name="OptionsPanel" parent="." instance=ExtResource("3_optp")]
+unique_name_in_owner = true
+visible = false
+anchors_preset = 0
