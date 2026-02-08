@@ -1,14 +1,25 @@
-[gd_scene load_steps=10 format=3 uid="uid://b4t7l3s3c3n3"]
+[gd_scene load_steps=21 format=3 uid="uid://b4t7l3s3c3n3"]
 
 [ext_resource type="Script" uid="uid://mmrdf5rvhs41" path="res://scripts/combat/CombatManager.gd" id="1_cm"]
-[ext_resource type="PackedScene" uid="uid://b1p1a1y3r0u1t" path="res://scenes/units/PlayerUnit.tscn" id="2_pu"]
-[ext_resource type="PackedScene" uid="uid://b1h4syywnk48u" path="res://scenes/units/EnemySkeletonWarrior.tscn" id="3_warrior"]
-[ext_resource type="Resource" uid="uid://c3skeleton_warrior" path="res://data/units/enemy_skeleton_warrior.tres" id="4_warrior_data"]
-[ext_resource type="Theme" uid="uid://3c22hxeo5t8" path="res://ui/theme.tres" id="6_theme"]
-[ext_resource type="Script" uid="uid://bi0l4tdmadc2c" path="res://scripts/ui/BattleUI.gd" id="7_bui"]
-[ext_resource type="Environment" uid="uid://b7lq3cv6rbp6a" path="res://default_env.tres" id="8_env"]
-[ext_resource type="PackedScene" uid="uid://82rnex7vhhja" path="res://scenes/floors/FloorTileLarge.tscn" id="9_floor"]
-[ext_resource type="PackedScene" path="res://scenes/walls/Wall.tscn" id="10_wall"]
+[ext_resource type="PackedScene" uid="uid://p1knight" path="res://scenes/units/PlayerKnight.tscn" id="2_knight"]
+[ext_resource type="Resource" uid="uid://d1player_knight" path="res://data/units/player_knight.tres" id="3_knight_data"]
+[ext_resource type="PackedScene" uid="uid://p1mage" path="res://scenes/units/PlayerMage.tscn" id="4_mage"]
+[ext_resource type="Resource" uid="uid://d1player_mage" path="res://data/units/player_mage.tres" id="5_mage_data"]
+[ext_resource type="PackedScene" uid="uid://p1ranger" path="res://scenes/units/PlayerRanger.tscn" id="6_ranger"]
+[ext_resource type="Resource" uid="uid://d1player_ranger" path="res://data/units/player_ranger.tres" id="7_ranger_data"]
+[ext_resource type="PackedScene" path="res://scenes/units/PlayerRogue.tscn" id="8_rogue"]
+[ext_resource type="Resource" uid="uid://d1player_rogue" path="res://data/units/player_rogue.tres" id="9_rogue_data"]
+[ext_resource type="PackedScene" path="res://scenes/units/PlayerBarbarian.tscn" id="10_barbarian"]
+[ext_resource type="Resource" uid="uid://d1player_barbarian" path="res://data/units/player_barbarian.tres" id="11_barbarian_data"]
+[ext_resource type="PackedScene" path="res://scenes/units/PlayerRogueHooded.tscn" id="12_rogue_hooded"]
+[ext_resource type="Resource" uid="uid://d1player_rogue_hooded" path="res://data/units/player_rogue_hooded.tres" id="13_rogue_hooded_data"]
+[ext_resource type="PackedScene" uid="uid://b1h4syywnk48u" path="res://scenes/units/EnemySkeletonWarrior.tscn" id="14_warrior"]
+[ext_resource type="Resource" uid="uid://c3skeleton_warrior" path="res://data/units/enemy_skeleton_warrior.tres" id="15_warrior_data"]
+[ext_resource type="Theme" uid="uid://3c22hxeo5t8" path="res://ui/theme.tres" id="16_theme"]
+[ext_resource type="Script" uid="uid://bi0l4tdmadc2c" path="res://scripts/ui/BattleUI.gd" id="17_bui"]
+[ext_resource type="Environment" uid="uid://b7lq3cv6rbp6a" path="res://default_env.tres" id="18_env"]
+[ext_resource type="PackedScene" uid="uid://82rnex7vhhja" path="res://scenes/floors/FloorTileLarge.tscn" id="19_floor"]
+[ext_resource type="PackedScene" path="res://scenes/walls/Wall.tscn" id="20_wall"]
 
 [node name="Battle" type="Node3D"]
 
@@ -18,20 +29,20 @@ light_energy = 1.2
 shadow_enabled = true
 
 [node name="WorldEnvironment" type="WorldEnvironment" parent="."]
-environment = ExtResource("8_env")
+environment = ExtResource("18_env")
 
 [node name="Floor" type="Node3D" parent="."]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.05, 0)
 
-[node name="FloorTileLarge" parent="Floor" instance=ExtResource("9_floor")]
+[node name="FloorTileLarge" parent="Floor" instance=ExtResource("19_floor")]
 transform = Transform3D(5.123696, 0, 0, 0, 1, 0, 0, 0, 4.2421227, 0, -1.7652154, 0)
 
 [node name="Walls" type="Node3D" parent="."]
 
-[node name="Wall" parent="Walls" instance=ExtResource("10_wall")]
+[node name="Wall" parent="Walls" instance=ExtResource("20_wall")]
 transform = Transform3D(0, 0, 1, 0, 1.7511083, 0, -4.442548, 0, 0, -9.42112, -1.8814764, 0.00081539154)
 
-[node name="Wall2" parent="Walls" instance=ExtResource("10_wall")]
+[node name="Wall2" parent="Walls" instance=ExtResource("20_wall")]
 transform = Transform3D(-6.029977, 0, 0.019925846, 0, 1.7511083, 0, -0.12104556, 0, -0.99262166, 1.9517384, -1.8814764, -9.020041)
 
 [node name="Camera3D" type="Camera3D" parent="."]
@@ -42,9 +53,27 @@ fov = 55.0
 
 [node name="CombatManager" type="Node" parent="."]
 script = ExtResource("1_cm")
-player_scene = ExtResource("2_pu")
-enemy_skeleton_warrior_scene = ExtResource("3_warrior")
-enemy_skeleton_warrior_data = ExtResource("4_warrior_data")
+player_knight_count = 0
+player_knight_scene = ExtResource("2_knight")
+player_knight_data = ExtResource("3_knight_data")
+player_mage_count = 0
+player_mage_scene = ExtResource("4_mage")
+player_mage_data = ExtResource("5_mage_data")
+player_ranger_count = 0
+player_ranger_scene = ExtResource("6_ranger")
+player_ranger_data = ExtResource("7_ranger_data")
+player_rogue_count = 0
+player_rogue_scene = ExtResource("8_rogue")
+player_rogue_data = ExtResource("9_rogue_data")
+player_barbarian_count = 0
+player_barbarian_scene = ExtResource("10_barbarian")
+player_barbarian_data = ExtResource("11_barbarian_data")
+player_rogue_hooded_count = 0
+player_rogue_hooded_scene = ExtResource("12_rogue_hooded")
+player_rogue_hooded_data = ExtResource("13_rogue_hooded_data")
+enemy_skeleton_warrior_count = 0
+enemy_skeleton_warrior_scene = ExtResource("14_warrior")
+enemy_skeleton_warrior_data = ExtResource("15_warrior_data")
 
 [node name="UI" type="CanvasLayer" parent="."]
 
@@ -55,8 +84,8 @@ anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
-theme = ExtResource("6_theme")
-script = ExtResource("7_bui")
+theme = ExtResource("16_theme")
+script = ExtResource("17_bui")
 combat_manager_path = NodePath("../../CombatManager")
 camera_path = NodePath("../../Camera3D")
 
