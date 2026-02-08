@@ -5,12 +5,12 @@ extends Control
 ## Usa la misma relación axial que HexGrid, en píxeles.
 ##
 
-signal hex_selected(q: int, r: int)
+signal selection_changed()
 
 const CELL_SIZE := 44
 const HEX_RANGE := 4
 
-var _selected_hex: Vector2i = Vector2i(0, 0)
+var _selected_hexes: Dictionary = {}
 var _hover_hex: Vector2i = Vector2i(-999, -999)
 var _occupied_hexes: Dictionary = {}
 
@@ -28,10 +28,11 @@ func _draw() -> void:
 			var center := _hex_to_pixel(q, r, cx, cy)
 			var key := _key(q, r)
 			var occupied: bool = _occupied_hexes.get(key, false)
+			var selected: bool = _selected_hexes.get(key, false)
 			var col: Color
 			if occupied:
-				col = Color(0.75, 0.22, 0.22) if (q != _selected_hex.x or r != _selected_hex.y) else Color(0.6, 0.15, 0.15)
-			elif q == _selected_hex.x and r == _selected_hex.y:
+				col = Color(0.75, 0.22, 0.22) if not selected else Color(0.6, 0.15, 0.15)
+			elif selected:
 				col = Color(0.35, 0.55, 0.85)
 			elif q == _hover_hex.x and r == _hover_hex.y:
 				col = Color(0.28, 0.32, 0.38)
@@ -41,8 +42,9 @@ func _draw() -> void:
 	for q in range(-HEX_RANGE, HEX_RANGE + 1):
 		for r in range(-HEX_RANGE, HEX_RANGE + 1):
 			var center := _hex_to_pixel(q, r, cx, cy)
-			var label: String = "(%d,%d)" % [q, r] if (q == _selected_hex.x and r == _selected_hex.y) else "%d,%d" % [q, r]
-			var fs: int = 14 if (q == _selected_hex.x and r == _selected_hex.y) else 13
+			var selected: bool = _selected_hexes.get(_key(q, r), false)
+			var label: String = "(%d,%d)" % [q, r] if selected else "%d,%d" % [q, r]
+			var fs: int = 14 if selected else 13
 			var tw: float = label.length() * 7.0
 			draw_string(ThemeDB.fallback_font, center - Vector2(tw * 0.5, -5), label, HORIZONTAL_ALIGNMENT_LEFT, -1, fs)
 
@@ -93,8 +95,12 @@ func _gui_input(event: InputEvent) -> void:
 		if mb.button_index == MOUSE_BUTTON_LEFT and mb.pressed:
 			var h: Vector2i = _pixel_to_hex(mb.position.x, mb.position.y, cx, cy)
 			if abs(h.x) <= HEX_RANGE and abs(h.y) <= HEX_RANGE:
-				_selected_hex = h
-				hex_selected.emit(h.x, h.y)
+				var k := _key(h.x, h.y)
+				if _selected_hexes.get(k, false):
+					_selected_hexes.erase(k)
+				else:
+					_selected_hexes[k] = true
+				selection_changed.emit()
 				queue_redraw()
 	elif event is InputEventMouseMotion:
 		var h: Vector2i = _pixel_to_hex(event.position.x, event.position.y, cx, cy)
@@ -104,8 +110,16 @@ func _gui_input(event: InputEvent) -> void:
 			_hover_hex = Vector2i(-999, -999)
 		queue_redraw()
 
-func set_selected(q: int, r: int) -> void:
-	_selected_hex = Vector2i(q, r)
+func get_selected_hexes() -> Array:
+	var out: Array = []
+	for k in _selected_hexes.keys():
+		var parts: PackedStringArray = k.split(",")
+		if parts.size() >= 2:
+			out.append(Vector2i(int(parts[0]), int(parts[1])))
+	return out
+
+func clear_selection() -> void:
+	_selected_hexes.clear()
 	queue_redraw()
 
 func set_occupied_hexes(hexes: Array) -> void:

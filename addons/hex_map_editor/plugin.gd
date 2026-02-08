@@ -7,10 +7,10 @@ extends EditorPlugin
 
 const HEX_SCENES_PATH := "res://scenes/hex/"
 const MENU_NAME := "Add hex to map"
+const CONFIG_PATH := "user://hex_map_editor.cfg"
+const CONFIG_KEY_LAST_TILE := "last_tile"
 
 var _dialog: Window
-var _q_spin: SpinBox
-var _r_spin: SpinBox
 var _tile_option: OptionButton
 var _summary_label: Label
 var _hex_picker: Control
@@ -48,7 +48,7 @@ func _build_dialog() -> void:
 	_dialog.add_child(vbox)
 
 	var help := Label.new()
-	help.text = "Abre DefaultMap.tscn. Clic en la grilla o usa los números para (q, r). Elige el tile y pulsa Añadir."
+	help.text = "Abre DefaultMap.tscn. Clic en la grilla para seleccionar celdas (varias a la vez). Elige el tipo de hex y pulsa Añadir."
 	help.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	help.custom_minimum_size.y = 32
 	if theme:
@@ -67,7 +67,7 @@ func _build_dialog() -> void:
 	center_col.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	center_col.custom_minimum_size.x = 1520
 	var grid_title := Label.new()
-	grid_title.text = "Clic para elegir (q, r)"
+	grid_title.text = "Clic para seleccionar celdas (múltiples)"
 	if theme:
 		grid_title.add_theme_font_size_override("font_size", 13)
 	center_col.add_child(grid_title)
@@ -78,8 +78,8 @@ func _build_dialog() -> void:
 	_hex_picker = Control.new()
 	_hex_picker.set_script(picker_script)
 	_hex_picker.custom_minimum_size = Vector2(1500, 1500)
-	if _hex_picker.has_signal("hex_selected"):
-		_hex_picker.hex_selected.connect(_on_picker_hex_selected)
+	if _hex_picker.has_signal("selection_changed"):
+		_hex_picker.selection_changed.connect(_update_summary)
 	scroll.add_child(_hex_picker)
 	center_col.add_child(scroll)
 	content.add_child(center_col)
@@ -88,45 +88,11 @@ func _build_dialog() -> void:
 	content.add_child(spacer_right)
 	vbox.add_child(content)
 
-	# Fila de controles: coordenadas + tipo de hex
+	# Fila de controles: tipo de hex
 	var controls_row := HBoxContainer.new()
 	controls_row.add_theme_constant_override("separation", 32)
 	controls_row.alignment = BoxContainer.ALIGNMENT_CENTER
 	controls_row.custom_minimum_size.y = 140
-
-	var coord_box := VBoxContainer.new()
-	coord_box.add_theme_constant_override("separation", 6)
-	var coord_title := Label.new()
-	coord_title.text = "Coordenadas"
-	if theme:
-		coord_title.add_theme_font_size_override("font_size", 13)
-	coord_box.add_child(coord_title)
-	var coord_row := HBoxContainer.new()
-	coord_row.add_theme_constant_override("separation", 12)
-	var q_lbl := Label.new()
-	q_lbl.text = "q:"
-	q_lbl.custom_minimum_size.x = 20
-	coord_row.add_child(q_lbl)
-	_q_spin = SpinBox.new()
-	_q_spin.min_value = -20
-	_q_spin.max_value = 20
-	_q_spin.value = 0
-	_q_spin.custom_minimum_size.x = 72
-	_q_spin.value_changed.connect(_update_summary)
-	coord_row.add_child(_q_spin)
-	var r_lbl := Label.new()
-	r_lbl.text = "r:"
-	r_lbl.custom_minimum_size.x = 20
-	coord_row.add_child(r_lbl)
-	_r_spin = SpinBox.new()
-	_r_spin.min_value = -20
-	_r_spin.max_value = 20
-	_r_spin.value = 0
-	_r_spin.custom_minimum_size.x = 72
-	_r_spin.value_changed.connect(_update_summary)
-	coord_row.add_child(_r_spin)
-	coord_box.add_child(coord_row)
-	controls_row.add_child(coord_box)
 
 	var tile_box := VBoxContainer.new()
 	tile_box.add_theme_constant_override("separation", 6)
@@ -189,7 +155,7 @@ func _fill_tile_list() -> void:
 	var dir := DirAccess.open(HEX_SCENES_PATH)
 	if dir == null:
 		_tile_option.add_item("HexGrass (default)", 0)
-		_tile_option.selected = 0
+		_select_last_tile()
 		return
 	var files: PackedStringArray = dir.get_files()
 	var idx := 0
@@ -200,25 +166,28 @@ func _fill_tile_list() -> void:
 		idx += 1
 	if _tile_option.item_count == 0:
 		_tile_option.add_item("HexGrass (default)", 0)
-	_tile_option.selected = 0
+	_select_last_tile()
 
 func _update_summary(_arg = null) -> void:
-	var q: int = int(_q_spin.value) if _q_spin else 0
-	var r: int = int(_r_spin.value) if _r_spin else 0
 	var name_only: String = "HexGrass"
 	if _tile_option and _tile_option.item_count > 0:
 		name_only = _tile_option.get_item_text(_tile_option.selected)
+	var hexes: Array = []
+	if _hex_picker and _hex_picker.has_method("get_selected_hexes"):
+		hexes = _hex_picker.get_selected_hexes()
 	if _summary_label:
-		_summary_label.text = "Se añadirá %s en (%d, %d)." % [name_only, q, r]
-	if _hex_picker and _hex_picker.has_method("set_selected"):
-		_hex_picker.set_selected(q, r)
-
-func _on_picker_hex_selected(q: int, r: int) -> void:
-	if _q_spin != null:
-		_q_spin.value = q
-	if _r_spin != null:
-		_r_spin.value = r
-	_update_summary()
+		if hexes.is_empty():
+			_summary_label.text = "Selecciona al menos una celda. Se usará: %s." % name_only
+		elif hexes.size() == 1:
+			var h: Vector2i = hexes[0]
+			_summary_label.text = "Se añadirá %s en (%d, %d)." % [name_only, h.x, h.y]
+		else:
+			var parts: PackedStringArray = []
+			for i in range(mini(hexes.size(), 8)):
+				var h: Vector2i = hexes[i]
+				parts.append("(%d,%d)" % [h.x, h.y])
+			var rest: String = "" if hexes.size() <= 8 else " ..."
+			_summary_label.text = "Se añadirá %s en %d celdas: %s%s." % [name_only, hexes.size(), ", ".join(parts), rest]
 
 func _on_menu_pressed() -> void:
 	if _dialog == null:
@@ -226,12 +195,8 @@ func _on_menu_pressed() -> void:
 	var base: Control = get_editor_interface().get_base_control()
 	if not _dialog.is_inside_tree():
 		base.add_child(_dialog)
-	if _tile_option.item_count > 0:
-		_tile_option.selected = 0
 	_refresh_occupied_hexes()
 	_update_summary()
-	if _hex_picker and _hex_picker.has_method("set_selected"):
-		_hex_picker.set_selected(int(_q_spin.value), int(_r_spin.value))
 	_dialog.call_deferred("popup_centered")
 
 func _refresh_occupied_hexes() -> void:
@@ -254,8 +219,12 @@ func _on_add_pressed() -> void:
 	if tiles_node == null:
 		_show_message("Abre la escena DefaultMap.tscn y vuelve a intentar.")
 		return
-	var q: int = int(_q_spin.value)
-	var r: int = int(_r_spin.value)
+	var hexes: Array = []
+	if _hex_picker and _hex_picker.has_method("get_selected_hexes"):
+		hexes = _hex_picker.get_selected_hexes()
+	if hexes.is_empty():
+		_show_message("Selecciona al menos una celda en la grilla.")
+		return
 	var scene_path: String = _get_selected_tile_path()
 	if scene_path.is_empty():
 		_show_message("No se encontró la escena del tile.")
@@ -264,16 +233,24 @@ func _on_add_pressed() -> void:
 	if scene == null:
 		_show_message("No se pudo cargar: %s" % scene_path)
 		return
-	var tile: Node3D = scene.instantiate() as Node3D
-	if tile == null:
-		_show_message("La escena no es Node3D.")
-		return
-	tile.position = HexGrid.hex_to_world(q, r, 0.0)
-	tile.name = "Hex_%d_%d" % [q, r]
-	tiles_node.add_child(tile)
-	tile.owner = get_editor_interface().get_edited_scene_root()
-	_dialog.hide()
-	_show_message("Hex añadido en (%d, %d). Guarda la escena (Ctrl+S)." % [q, r])
+	var root_owner: Node = get_editor_interface().get_edited_scene_root()
+	var name_only: String = _tile_option.get_item_text(_tile_option.selected).replace(" (default)", "")
+	_save_last_tile(name_only)
+	for h in hexes:
+		var q: int = h.x
+		var r: int = h.y
+		var tile: Node3D = scene.instantiate() as Node3D
+		if tile == null:
+			continue
+		tile.position = HexGrid.hex_to_world(q, r, 0.0)
+		tile.name = "Hex_%d_%d" % [q, r]
+		tiles_node.add_child(tile)
+		tile.owner = root_owner
+	if _hex_picker.has_method("clear_selection"):
+		_hex_picker.clear_selection()
+	_refresh_occupied_hexes()
+	_update_summary()
+	_show_message("Añadidos %d hex(es). Guarda la escena (Ctrl+S)." % hexes.size())
 
 func _get_tiles_node() -> Node:
 	var root: Node = get_editor_interface().get_edited_scene_root()
@@ -297,3 +274,27 @@ func _get_selected_tile_path() -> String:
 
 func _show_message(msg: String) -> void:
 	OS.alert(msg, "Hex Map Editor")
+
+func _save_last_tile(tile_name: String) -> void:
+	var cfg := ConfigFile.new()
+	cfg.set_value("editor", CONFIG_KEY_LAST_TILE, tile_name)
+	cfg.save(CONFIG_PATH)
+
+func _select_last_tile() -> void:
+	if _tile_option.item_count == 0:
+		return
+	var cfg := ConfigFile.new()
+	if cfg.load(CONFIG_PATH) != OK:
+		_tile_option.selected = 0
+		return
+	var last: Variant = cfg.get_value("editor", CONFIG_KEY_LAST_TILE, "")
+	if last == null or (last is String and (last as String).is_empty()):
+		_tile_option.selected = 0
+		return
+	var name_str: String = str(last)
+	for i in range(_tile_option.item_count):
+		var item_text: String = _tile_option.get_item_text(i).replace(" (default)", "")
+		if item_text == name_str:
+			_tile_option.selected = i
+			return
+	_tile_option.selected = 0
