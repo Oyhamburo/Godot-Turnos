@@ -20,5 +20,14 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.8660254, 0, 1.5)
 [node name="Hex_1_1" parent="Tiles" instance=ExtResource("3_jir1i")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2.598076, 0, 1.5)
 
-[node name="Hex_-1_1" type="Node3D" parent="Tiles" instance=ExtResource("2_hex")]
+[node name="Hex_-1_1" parent="Tiles" instance=ExtResource("2_hex")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.8660254, 0, 1.5)
+
+[node name="Hex_-1_0" type="Node3D" parent="Tiles" instance=ExtResource("2_hex")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.7320508, 0, 0)
+
+[node name="Hex_1_-1" type="Node3D" parent="Tiles" instance=ExtResource("3_jir1i")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.8660254, 0, -1.5)
+
+[node name="Hex_-1_2" type="Node3D" parent="Tiles" instance=ExtResource("2_hex")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 3)

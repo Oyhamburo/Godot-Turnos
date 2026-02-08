@@ -16,7 +16,7 @@ var _occupied_hexes: Dictionary = {}
 
 func _ready() -> void:
 	clip_contents = true
-	custom_minimum_size = Vector2(440, 620)
+	custom_minimum_size = Vector2(1500, 1500)
 	mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
 
 func _draw() -> void:

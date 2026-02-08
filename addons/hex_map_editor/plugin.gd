@@ -32,8 +32,8 @@ func _build_dialog() -> void:
 
 	_dialog = Window.new()
 	_dialog.title = "Añadir hex al mapa"
-	_dialog.min_size = Vector2i(760, 680)
-	_dialog.size = Vector2i(920, 700)
+	_dialog.min_size = Vector2i(1580, 1680)
+	_dialog.size = Vector2i(1620, 1720)
 	_dialog.unresizable = false
 	if theme:
 		_dialog.theme = theme
@@ -55,9 +55,9 @@ func _build_dialog() -> void:
 		help.add_theme_font_size_override("font_size", 12)
 	vbox.add_child(help)
 
-	# Fila central: grilla centrada
+	# Fila central: grilla centrada (contenedor ~1500x1500)
 	var content := HBoxContainer.new()
-	content.custom_minimum_size.y = 640
+	content.custom_minimum_size.y = 1520
 	content.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	var spacer_left := Control.new()
 	spacer_left.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -65,19 +65,23 @@ func _build_dialog() -> void:
 	var center_col := VBoxContainer.new()
 	center_col.add_theme_constant_override("separation", 8)
 	center_col.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	center_col.custom_minimum_size.x = 1520
 	var grid_title := Label.new()
 	grid_title.text = "Clic para elegir (q, r)"
 	if theme:
 		grid_title.add_theme_font_size_override("font_size", 13)
 	center_col.add_child(grid_title)
+	var scroll := ScrollContainer.new()
+	scroll.custom_minimum_size = Vector2(1500, 1500)
+	scroll.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	var picker_script: GDScript = load("res://addons/hex_map_editor/hex_grid_picker.gd") as GDScript
 	_hex_picker = Control.new()
 	_hex_picker.set_script(picker_script)
-	_hex_picker.custom_minimum_size = Vector2(440, 620)
-	_hex_picker.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	_hex_picker.custom_minimum_size = Vector2(1500, 1500)
 	if _hex_picker.has_signal("hex_selected"):
 		_hex_picker.hex_selected.connect(_on_picker_hex_selected)
-	center_col.add_child(_hex_picker)
+	scroll.add_child(_hex_picker)
+	center_col.add_child(scroll)
 	content.add_child(center_col)
 	var spacer_right := Control.new()
 	spacer_right.size_flags_horizontal = Control.SIZE_EXPAND_FILL
