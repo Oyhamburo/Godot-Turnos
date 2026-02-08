@@ -12,6 +12,8 @@ transform = Transform3D(0.4, 0, 0, 0, 0.4, 0, 0, 0, 0.4, 0, 0, 0)
 [node name="Knight" parent="Visual" instance=ExtResource("2_knight")]
 transform = Transform3D(-1, 0, 0, 0, 1, 0, 0, 0, -1, 0, 0, 0)
 
+[node name="AnimationPlayer" type="AnimationPlayer" parent="Visual"]
+
 [node name="Camera3D" type="Camera3D" parent="."]
 transform = Transform3D(0.9998455, 0, 0.017581195, 0, 1, 0, -0.017581195, 0, 0.9998455, 0, 1.7845044, 3.8814592)
 current = true

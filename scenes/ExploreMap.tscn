@@ -2,7 +2,7 @@
 
 [ext_resource type="Script" path="res://scripts/map/ExploreMap.gd" id="1_script"]
 [ext_resource type="PackedScene" uid="uid://defaultmap01" path="res://scenes/DefaultMap.tscn" id="2_defaultmap"]
-[ext_resource type="PackedScene" uid="uid://exploreplayer01" path="res://scenes/units/ExplorePlayer.tscn" id="3_player"]
+[ext_resource type="PackedScene" uid="uid://m821k4r5rrfn" path="res://scenes/units/ExplorePlayer.tscn" id="3_player"]
 [ext_resource type="Environment" uid="uid://b7lq3cv6rbp6a" path="res://default_env.tres" id="4_env"]
 
 [node name="ExploreMap" type="Node3D"]
