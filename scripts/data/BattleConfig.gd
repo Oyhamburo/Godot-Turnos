@@ -4,8 +4,36 @@ class_name BattleConfig
 ## Define quiénes participan en una batalla. Asignar desde menú y usar en CombatManager.
 
 @export var battle_name: String = ""
-@export var player_scene: PackedScene
-@export var players_count: int = 3
+
+@export_group("Caballero")
+@export var player_knight_count: int = 0
+@export var player_knight_scene: PackedScene
+@export var player_knight_data: UnitData
+
+@export_group("Mago")
+@export var player_mage_count: int = 0
+@export var player_mage_scene: PackedScene
+@export var player_mage_data: UnitData
+
+@export_group("Ranger")
+@export var player_ranger_count: int = 0
+@export var player_ranger_scene: PackedScene
+@export var player_ranger_data: UnitData
+
+@export_group("Pícaro")
+@export var player_rogue_count: int = 0
+@export var player_rogue_scene: PackedScene
+@export var player_rogue_data: UnitData
+
+@export_group("Bárbaro")
+@export var player_barbarian_count: int = 0
+@export var player_barbarian_scene: PackedScene
+@export var player_barbarian_data: UnitData
+
+@export_group("Pícaro con capucha")
+@export var player_rogue_hooded_count: int = 0
+@export var player_rogue_hooded_scene: PackedScene
+@export var player_rogue_hooded_data: UnitData
 
 @export_group("Esqueleto Guerrero")
 @export var enemy_skeleton_warrior_count: int = 0

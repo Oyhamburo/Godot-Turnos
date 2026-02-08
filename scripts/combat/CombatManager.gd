@@ -10,7 +10,30 @@ signal battle_ended(player_won: bool)
 
 enum State { INIT, SELECTING_TARGET, ANIMATING, ENDED }
 
-@export var player_scene: PackedScene
+@export_group("Caballero")
+@export var player_knight_count: int = 0
+@export var player_knight_scene: PackedScene
+@export var player_knight_data: UnitData
+@export_group("Mago")
+@export var player_mage_count: int = 0
+@export var player_mage_scene: PackedScene
+@export var player_mage_data: UnitData
+@export_group("Ranger")
+@export var player_ranger_count: int = 0
+@export var player_ranger_scene: PackedScene
+@export var player_ranger_data: UnitData
+@export_group("Pícaro")
+@export var player_rogue_count: int = 0
+@export var player_rogue_scene: PackedScene
+@export var player_rogue_data: UnitData
+@export_group("Bárbaro")
+@export var player_barbarian_count: int = 0
+@export var player_barbarian_scene: PackedScene
+@export var player_barbarian_data: UnitData
+@export_group("Pícaro con capucha")
+@export var player_rogue_hooded_count: int = 0
+@export var player_rogue_hooded_scene: PackedScene
+@export var player_rogue_hooded_data: UnitData
 @export_group("Esqueleto Guerrero")
 @export var enemy_skeleton_warrior_count: int = 0
 @export var enemy_skeleton_warrior_scene: PackedScene
@@ -27,7 +50,6 @@ enum State { INIT, SELECTING_TARGET, ANIMATING, ENDED }
 @export var enemy_skeleton_rogue_count: int = 0
 @export var enemy_skeleton_rogue_scene: PackedScene
 @export var enemy_skeleton_rogue_data: UnitData
-@export var players_count: int = 1
 @export var units_container_path: NodePath = NodePath("../Units")
 
 var players: Array[Unit] = []
@@ -68,8 +90,24 @@ func _spawn_units() -> void:
 
 	# Usar BattleConfig del menú si existe; si no, usar @export del Inspector.
 	var cfg: BattleConfig = BattleManager.current_battle_config
-	var p_scene: PackedScene = cfg.player_scene if cfg else player_scene
-	var p_count: int = cfg.players_count if cfg else players_count
+	var p_knight_count: int = cfg.player_knight_count if cfg else player_knight_count
+	var p_knight_scene: PackedScene = cfg.player_knight_scene if cfg else player_knight_scene
+	var p_knight_data: UnitData = cfg.player_knight_data if cfg else player_knight_data
+	var p_mage_count: int = cfg.player_mage_count if cfg else player_mage_count
+	var p_mage_scene: PackedScene = cfg.player_mage_scene if cfg else player_mage_scene
+	var p_mage_data: UnitData = cfg.player_mage_data if cfg else player_mage_data
+	var p_ranger_count: int = cfg.player_ranger_count if cfg else player_ranger_count
+	var p_ranger_scene: PackedScene = cfg.player_ranger_scene if cfg else player_ranger_scene
+	var p_ranger_data: UnitData = cfg.player_ranger_data if cfg else player_ranger_data
+	var p_rogue_count: int = cfg.player_rogue_count if cfg else player_rogue_count
+	var p_rogue_scene: PackedScene = cfg.player_rogue_scene if cfg else player_rogue_scene
+	var p_rogue_data: UnitData = cfg.player_rogue_data if cfg else player_rogue_data
+	var p_barbarian_count: int = cfg.player_barbarian_count if cfg else player_barbarian_count
+	var p_barbarian_scene: PackedScene = cfg.player_barbarian_scene if cfg else player_barbarian_scene
+	var p_barbarian_data: UnitData = cfg.player_barbarian_data if cfg else player_barbarian_data
+	var p_rogue_hooded_count: int = cfg.player_rogue_hooded_count if cfg else player_rogue_hooded_count
+	var p_rogue_hooded_scene: PackedScene = cfg.player_rogue_hooded_scene if cfg else player_rogue_hooded_scene
+	var p_rogue_hooded_data: UnitData = cfg.player_rogue_hooded_data if cfg else player_rogue_hooded_data
 	var e_warrior_count: int = cfg.enemy_skeleton_warrior_count if cfg else enemy_skeleton_warrior_count
 	var e_warrior_scene: PackedScene = cfg.enemy_skeleton_warrior_scene if cfg else enemy_skeleton_warrior_scene
 	var e_warrior_data: UnitData = cfg.enemy_skeleton_warrior_data if cfg else enemy_skeleton_warrior_data
@@ -85,28 +123,47 @@ func _spawn_units() -> void:
 	if cfg:
 		BattleManager.clear_battle()
 
-	if p_scene == null:
-		push_error("CombatManager: player_scene no asignado (ni en BattleConfig ni en Inspector).")
-		return
 	players.clear()
 	enemies.clear()
 
-	# Formation settings (XZ plane). Superficie del piso en y=0; origen del personaje ~0.6 arriba.
 	const UNIT_SPAWN_Y := 0.6
 	var px := [-2.2, 0.0, 2.2]
 	var ex := [-2.2, 0.0, 2.2]
 	var pz := 2.5
 	var ez := -2.5
 
-	for i in range(p_count):
+	var player_spawns: Array[Dictionary] = []
+	for _i in range(p_knight_count):
+		player_spawns.append({"scene": p_knight_scene, "data": p_knight_data})
+	for _i in range(p_mage_count):
+		player_spawns.append({"scene": p_mage_scene, "data": p_mage_data})
+	for _i in range(p_ranger_count):
+		player_spawns.append({"scene": p_ranger_scene, "data": p_ranger_data})
+	for _i in range(p_rogue_count):
+		player_spawns.append({"scene": p_rogue_scene, "data": p_rogue_data})
+	for _i in range(p_barbarian_count):
+		player_spawns.append({"scene": p_barbarian_scene, "data": p_barbarian_data})
+	for _i in range(p_rogue_hooded_count):
+		player_spawns.append({"scene": p_rogue_hooded_scene, "data": p_rogue_hooded_data})
+
+	for i in range(player_spawns.size()):
+		var entry: Dictionary = player_spawns[i]
+		var p_scene: PackedScene = entry.scene
+		var p_data: UnitData = entry.data
+		if p_scene == null:
+			push_warning("CombatManager: escena de jugador no asignada en el spawn %d. Saltando." % i)
+			continue
 		var u: Unit = p_scene.instantiate() as Unit
 		if u == null:
 			continue
-		u.display_name = "Player %d" % (i + 1)
-		u.max_hp = 34
-		u.hp = u.max_hp
-		u.speed = 12 - i # slight variation
-		u.attack = 9
+		if p_data:
+			u.data = p_data
+		else:
+			u.display_name = "Player %d" % (i + 1)
+			u.max_hp = 34
+			u.hp = u.max_hp
+			u.speed = 12 - i
+			u.attack = 9
 		u.connect("died", Callable(self, "_on_unit_died"))
 		units_container.add_child(u)
 		u.global_position = Vector3(px[i % px.size()], UNIT_SPAWN_Y, pz + float(i) / float(px.size()) * 1.8)
@@ -224,7 +281,7 @@ func _next_turn() -> void:
 		emit_signal("state_changed", state)
 		await _enemy_take_turn(current)
 
-func player_attack(attacker: Unit, target: Unit) -> void:
+func player_attack(attacker: Unit, target: Unit, ability_index: int = 0) -> void:
 	# Called by UI during player's turn.
 	if state != State.SELECTING_TARGET:
 		return
@@ -239,7 +296,7 @@ func player_attack(attacker: Unit, target: Unit) -> void:
 
 	state = State.ANIMATING
 	emit_signal("state_changed", state)
-	await _resolve_attack(attacker, target)
+	await _resolve_attack(attacker, target, ability_index)
 
 func player_pass() -> void:
 	if state != State.SELECTING_TARGET:
@@ -251,7 +308,8 @@ func _enemy_take_turn(attacker: Unit) -> void:
 	if target == null:
 		_end_battle(false)
 		return
-	await _resolve_attack(attacker, target)
+	var ability_index: int = randi() % 4
+	await _resolve_attack(attacker, target, ability_index)
 
 func _pick_enemy_target() -> Unit:
 	# Simple AI: pick alive player with lowest HP (deterministic).
@@ -262,12 +320,12 @@ func _pick_enemy_target() -> Unit:
 				best = p
 	return best
 
-func _resolve_attack(attacker: Unit, target: Unit) -> void:
+func _resolve_attack(attacker: Unit, target: Unit, ability_index: int = 0) -> void:
 	if attacker == null or target == null:
 		_end_turn()
 		return
 
-	await attacker.attack_target(target)
+	await attacker.attack_target(target, ability_index)
 
 	# Check battle end after action finishes.
 	if _are_all_dead(enemies):
