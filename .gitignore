@@ -25,3 +25,6 @@ Thumbs.db
 *.swp
 *.swo
 *~
+
+# Assets pesados no usados en el proyecto
+assets/
