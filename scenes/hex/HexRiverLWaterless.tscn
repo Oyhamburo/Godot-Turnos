@@ -1,0 +1,7 @@
+[gd_scene load_steps=2 format=3 uid="uid://hex8040009ce5"]
+
+[ext_resource type="PackedScene" path="res://assets/KayKit_Medieval_Hexagon_Pack_1.0_FREE/Assets/gltf/tiles/rivers/waterless/hex_river_L_waterless.gltf" id="1_mesh"]
+
+[node name="HexRiverLWaterless" type="Node3D"]
+
+[node name="Mesh" parent="." instance=ExtResource("1_mesh")]

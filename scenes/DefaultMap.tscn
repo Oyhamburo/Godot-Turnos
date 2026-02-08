@@ -1,0 +1,51 @@
+[gd_scene load_steps=7 format=3 uid="uid://defaultmap01"]
+
+[ext_resource type="Script" uid="uid://brilrji5h8v24" path="res://scripts/map/DefaultMap.gd" id="1_script"]
+[ext_resource type="PackedScene" uid="uid://djjkn676h0agl" path="res://scenes/hex/HexGrass.tscn" id="2_hex"]
+[ext_resource type="PackedScene" uid="uid://djj8k6c1psfda" path="res://scenes/hex/HexCoastA.tscn" id="3_jir1i"]
+[ext_resource type="PackedScene" uid="uid://djj5ka61kvdbn" path="res://scenes/hex/HexCoastE.tscn" id="4_se4aq"]
+[ext_resource type="PackedScene" uid="uid://djjgna3xj1cec" path="res://scenes/hex/HexRiverACurvy.tscn" id="5_65y0q"]
+[ext_resource type="PackedScene" uid="uid://djjkhy60q4fae" path="res://scenes/hex/HexGrassBottom.tscn" id="6_6jtbq"]
+
+[node name="DefaultMap" type="Node3D"]
+script = ExtResource("1_script")
+
+[node name="Tiles" type="Node3D" parent="."]
+
+[node name="HexGrass4" parent="Tiles" instance=ExtResource("2_hex")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -2.8709106, 0, -1.5747508)
+
+[node name="Hex_0_0" parent="Tiles" instance=ExtResource("2_hex")]
+
+[node name="Hex_1_0" parent="Tiles" instance=ExtResource("2_hex")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.7320508, 0, 0)
+
+[node name="Hex_0_1" parent="Tiles" instance=ExtResource("3_jir1i")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.8660254, 0, 1.5)
+
+[node name="HexGrass" parent="Tiles" instance=ExtResource("2_hex")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.7320508, 0, 3)
+
+[node name="HexGrass2" parent="Tiles" instance=ExtResource("2_hex")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.7320508, 0, 0)
+
+[node name="HexCoastA" parent="Tiles" instance=ExtResource("3_jir1i")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.8660254, 0, -1.5)
+
+[node name="HexCoastE" parent="Tiles" instance=ExtResource("4_se4aq")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.8660254, 0, -1.5)
+
+[node name="HexRiverACurvy" parent="Tiles" instance=ExtResource("5_65y0q")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.8660254, 0, 1.5)
+
+[node name="HexGrass3" parent="Tiles" instance=ExtResource("2_hex")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -3.6904953, 0, 0)
+
+[node name="HexGrass5" parent="Tiles" instance=ExtResource("2_hex")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -2.6857474, 0, 1.6746689)
+
+[node name="HexGrassBottom" parent="Tiles" instance=ExtResource("6_6jtbq")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 3.3300338)
+
+[node name="HexCoastA2" parent="Tiles" instance=ExtResource("3_jir1i")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 3.632024, 0, 0)

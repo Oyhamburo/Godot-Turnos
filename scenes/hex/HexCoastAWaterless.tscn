@@ -1,0 +1,7 @@
+[gd_scene load_steps=2 format=3 uid="uid://hexb8b8dcbb4f"]
+
+[ext_resource type="PackedScene" path="res://assets/KayKit_Medieval_Hexagon_Pack_1.0_FREE/Assets/gltf/tiles/coast/waterless/hex_coast_A_waterless.gltf" id="1_mesh"]
+
+[node name="HexCoastAWaterless" type="Node3D"]
+
+[node name="Mesh" parent="." instance=ExtResource("1_mesh")]

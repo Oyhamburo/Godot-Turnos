@@ -1,0 +1,33 @@
+[gd_scene load_steps=5 format=3 uid="uid://exploremap01"]
+
+[ext_resource type="Script" path="res://scripts/map/ExploreMap.gd" id="1_script"]
+[ext_resource type="PackedScene" uid="uid://defaultmap01" path="res://scenes/DefaultMap.tscn" id="2_defaultmap"]
+[ext_resource type="PackedScene" uid="uid://exploreplayer01" path="res://scenes/units/ExplorePlayer.tscn" id="3_player"]
+[ext_resource type="Environment" uid="uid://b7lq3cv6rbp6a" path="res://default_env.tres" id="4_env"]
+
+[node name="ExploreMap" type="Node3D"]
+script = ExtResource("1_script")
+
+[node name="WorldEnvironment" type="WorldEnvironment" parent="."]
+environment = ExtResource("4_env")
+
+[node name="DirectionalLight3D" type="DirectionalLight3D" parent="."]
+transform = Transform3D(0.5, -0.5, 0.707, 0, 0.816, 0.577, -0.866, -0.289, 0.408, 0, 15, 10)
+light_energy = 1.2
+shadow_enabled = true
+
+[node name="DefaultMap" parent="." instance=ExtResource("2_defaultmap")]
+
+[node name="ExplorePlayer" parent="." instance=ExtResource("3_player")]
+
+[node name="UI" type="CanvasLayer" parent="."]
+
+[node name="BackButton" type="Button" parent="UI"]
+anchors_preset = 1
+anchor_left = 1.0
+anchor_right = 1.0
+offset_left = -180.0
+offset_top = 20.0
+offset_right = -20.0
+offset_bottom = 60.0
+text = "Volver"

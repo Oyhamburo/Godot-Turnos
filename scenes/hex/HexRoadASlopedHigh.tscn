@@ -1,0 +1,7 @@
+[gd_scene load_steps=2 format=3 uid="uid://hex717f1f8cdb"]
+
+[ext_resource type="PackedScene" path="res://assets/KayKit_Medieval_Hexagon_Pack_1.0_FREE/Assets/gltf/tiles/roads/hex_road_A_sloped_high.gltf" id="1_mesh"]
+
+[node name="HexRoadASlopedHigh" type="Node3D"]
+
+[node name="Mesh" parent="." instance=ExtResource("1_mesh")]

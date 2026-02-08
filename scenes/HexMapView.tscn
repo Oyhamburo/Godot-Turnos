@@ -1,0 +1,56 @@
+[gd_scene load_steps=5 format=3 uid="uid://h1f3wybd4xqq"]
+
+[ext_resource type="Script" path="res://scripts/map/HexMapView.gd" id="1_script"]
+[ext_resource type="PackedScene" path="res://scenes/units/MapPlayer.tscn" id="2_mapplayer"]
+[ext_resource type="PackedScene" uid="uid://defaultmap01" path="res://scenes/DefaultMap.tscn" id="3_defaultmap"]
+[ext_resource type="Environment" uid="uid://cr6jnw0wahqjf" path="res://scenes/map_env.tres" id="4_env"]
+
+[node name="HexMapView" type="Node3D"]
+script = ExtResource("1_script")
+
+[node name="WorldEnvironment" type="WorldEnvironment" parent="."]
+environment = ExtResource("4_env")
+
+[node name="DirectionalLight3D" type="DirectionalLight3D" parent="."]
+transform = Transform3D(-0.94425, 0, 0.32922933, 0.32922933, 0, 0.94425, 0, 1, 0, 0, 15, 0)
+light_energy = 1.5
+shadow_enabled = true
+
+[node name="OmniLight3D" type="OmniLight3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 8, 0)
+light_energy = 0.8
+omni_range = 25.0
+
+[node name="DefaultMap" parent="." instance=ExtResource("3_defaultmap")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.24878597, -2.0123806, -0.9699764)
+
+[node name="MapPlayer" parent="." instance=ExtResource("2_mapplayer")]
+
+[node name="UI" type="CanvasLayer" parent="."]
+
+[node name="HintLabel" type="Label" parent="UI"]
+visible = false
+anchors_preset = 7
+anchor_left = 0.5
+anchor_top = 1.0
+anchor_right = 0.5
+anchor_bottom = 1.0
+offset_left = -200.0
+offset_top = -50.0
+offset_right = 200.0
+offset_bottom = -20.0
+grow_horizontal = 2
+theme_override_colors/font_color = Color(0.9, 0.85, 0.7, 1)
+theme_override_font_sizes/font_size = 16
+text = "Clic en un hex adyacente para mover"
+horizontal_alignment = 1
+
+[node name="BackButton" type="Button" parent="UI"]
+anchors_preset = 1
+anchor_left = 1.0
+anchor_right = 1.0
+offset_left = -180.0
+offset_top = 20.0
+offset_right = -20.0
+offset_bottom = 60.0
+text = "Volver"
