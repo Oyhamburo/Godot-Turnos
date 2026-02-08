@@ -11,17 +11,22 @@ signal battle_ended(player_won: bool)
 enum State { INIT, SELECTING_TARGET, ANIMATING, ENDED }
 
 @export var player_scene: PackedScene
-@export_group("Enemigos Bruto")
-@export var enemy_bruto_count: int = 2
-@export var enemy_bruto_scene: PackedScene
-@export var enemy_bruto_data: UnitData
-@export_group("Enemigos Esqueleto")
-@export var enemy_skeleton_count: int = 2
-@export var enemy_skeleton_scene: PackedScene
-@export var enemy_skeleton_data: UnitData
-@export_group("Enemigos comunes")
-@export var enemy_common_count: int = 1
-@export var enemy_common_scene: PackedScene
+@export_group("Esqueleto Guerrero")
+@export var enemy_skeleton_warrior_count: int = 0
+@export var enemy_skeleton_warrior_scene: PackedScene
+@export var enemy_skeleton_warrior_data: UnitData
+@export_group("Esqueleto Mago")
+@export var enemy_skeleton_mage_count: int = 0
+@export var enemy_skeleton_mage_scene: PackedScene
+@export var enemy_skeleton_mage_data: UnitData
+@export_group("Esqueleto Minion")
+@export var enemy_skeleton_minion_count: int = 0
+@export var enemy_skeleton_minion_scene: PackedScene
+@export var enemy_skeleton_minion_data: UnitData
+@export_group("Esqueleto Pícaro")
+@export var enemy_skeleton_rogue_count: int = 0
+@export var enemy_skeleton_rogue_scene: PackedScene
+@export var enemy_skeleton_rogue_data: UnitData
 @export var players_count: int = 1
 @export var units_container_path: NodePath = NodePath("../Units")
 
@@ -65,14 +70,18 @@ func _spawn_units() -> void:
 	var cfg: BattleConfig = BattleManager.current_battle_config
 	var p_scene: PackedScene = cfg.player_scene if cfg else player_scene
 	var p_count: int = cfg.players_count if cfg else players_count
-	var e_bruto_count: int = cfg.enemy_bruto_count if cfg else enemy_bruto_count
-	var e_bruto_scene: PackedScene = cfg.enemy_bruto_scene if cfg else enemy_bruto_scene
-	var e_bruto_data: UnitData = cfg.enemy_bruto_data if cfg else enemy_bruto_data
-	var e_common_count: int = cfg.enemy_common_count if cfg else enemy_common_count
-	var e_common_scene: PackedScene = cfg.enemy_common_scene if cfg else enemy_common_scene
-	var e_skeleton_count: int = cfg.enemy_skeleton_count if cfg else enemy_skeleton_count
-	var e_skeleton_scene: PackedScene = cfg.enemy_skeleton_scene if cfg else enemy_skeleton_scene
-	var e_skeleton_data: UnitData = cfg.enemy_skeleton_data if cfg else enemy_skeleton_data
+	var e_warrior_count: int = cfg.enemy_skeleton_warrior_count if cfg else enemy_skeleton_warrior_count
+	var e_warrior_scene: PackedScene = cfg.enemy_skeleton_warrior_scene if cfg else enemy_skeleton_warrior_scene
+	var e_warrior_data: UnitData = cfg.enemy_skeleton_warrior_data if cfg else enemy_skeleton_warrior_data
+	var e_mage_count: int = cfg.enemy_skeleton_mage_count if cfg else enemy_skeleton_mage_count
+	var e_mage_scene: PackedScene = cfg.enemy_skeleton_mage_scene if cfg else enemy_skeleton_mage_scene
+	var e_mage_data: UnitData = cfg.enemy_skeleton_mage_data if cfg else enemy_skeleton_mage_data
+	var e_minion_count: int = cfg.enemy_skeleton_minion_count if cfg else enemy_skeleton_minion_count
+	var e_minion_scene: PackedScene = cfg.enemy_skeleton_minion_scene if cfg else enemy_skeleton_minion_scene
+	var e_minion_data: UnitData = cfg.enemy_skeleton_minion_data if cfg else enemy_skeleton_minion_data
+	var e_rogue_count: int = cfg.enemy_skeleton_rogue_count if cfg else enemy_skeleton_rogue_count
+	var e_rogue_scene: PackedScene = cfg.enemy_skeleton_rogue_scene if cfg else enemy_skeleton_rogue_scene
+	var e_rogue_data: UnitData = cfg.enemy_skeleton_rogue_data if cfg else enemy_skeleton_rogue_data
 	if cfg:
 		BattleManager.clear_battle()
 
@@ -106,12 +115,14 @@ func _spawn_units() -> void:
 
 	var enemy_colors := [Color(1, 0.35, 0.45), Color(0.9, 0.5, 0.2), Color(0.7, 0.35, 0.9), Color(0.3, 0.75, 0.5), Color(0.4, 0.6, 1.0)]
 	var spawns: Array[Dictionary] = []
-	for _i in range(e_bruto_count):
-		spawns.append({"scene": e_bruto_scene, "data": e_bruto_data})
-	for _i in range(e_common_count):
-		spawns.append({"scene": e_common_scene, "data": null})
-	for _i in range(e_skeleton_count):
-		spawns.append({"scene": e_skeleton_scene, "data": e_skeleton_data})
+	for _i in range(e_warrior_count):
+		spawns.append({"scene": e_warrior_scene, "data": e_warrior_data})
+	for _i in range(e_mage_count):
+		spawns.append({"scene": e_mage_scene, "data": e_mage_data})
+	for _i in range(e_minion_count):
+		spawns.append({"scene": e_minion_scene, "data": e_minion_data})
+	for _i in range(e_rogue_count):
+		spawns.append({"scene": e_rogue_scene, "data": e_rogue_data})
 	for i in range(spawns.size()):
 		var entry: Dictionary = spawns[i]
 		var scene: PackedScene = entry.scene
@@ -136,6 +147,9 @@ func _spawn_units() -> void:
 			u.color = enemy_colors[i % enemy_colors.size()]
 			u.refresh_visual_color()
 		u.global_position = Vector3(ex[i % ex.size()], UNIT_SPAWN_Y, ez - float(i) / float(ex.size()) * 1.8)
+		# Enemigos miran hacia el lado de los jugadores (Z positivo) para no quedar de espalda.
+		var look_target := Vector3(0.0, UNIT_SPAWN_Y, pz)
+		u.look_at(look_target, Vector3.UP)
 		u.reset_start_pose()
 		enemies.append(u)
 

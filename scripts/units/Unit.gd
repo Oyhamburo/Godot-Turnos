@@ -12,7 +12,8 @@ enum AnimState {
 	IDLE,
 	SPAWN,
 	HIT,
-	DEATH
+	DEATH,
+	ATTACK
 }
 
 @export var data: UnitData
@@ -146,6 +147,7 @@ func _anim_name_for_state(s: AnimState) -> String:
 		AnimState.SPAWN: return "spawn_air"
 		AnimState.HIT: return "hit"
 		AnimState.DEATH: return "death"
+		AnimState.ATTACK: return "attack"
 		_: return ""
 
 ## Máquina de estados de animación: transiciona al estado indicado y reproduce la animación correspondiente.
@@ -191,7 +193,7 @@ func _stop_idle() -> void:
 		ap.stop()
 
 func _on_animation_finished(_anim_name: StringName) -> void:
-	if _anim_state == AnimState.SPAWN or _anim_state == AnimState.HIT:
+	if _anim_state == AnimState.SPAWN or _anim_state == AnimState.HIT or _anim_state == AnimState.ATTACK:
 		set_animation_state(AnimState.IDLE)
 
 func take_damage(amount: int) -> void:
@@ -277,7 +279,7 @@ func attack_target(target: Unit) -> void:
 	t_move.tween_property(self, "global_position", approach, 0.35)
 	await t_move.finished
 
-	await _play_attack_anim()
+	await _play_attack_animation()
 
 	target.take_damage(attack)
 
@@ -286,22 +288,31 @@ func attack_target(target: Unit) -> void:
 	t_back.tween_property(self, "global_position", start_pos, 0.35)
 	await t_back.finished
 
-	# Restore original rotation smoothly (safer than tweening Basis).
+	# Restore original rotation por el camino más corto (evita giro de 360° por Euler ±PI).
+	var current_y := global_rotation.y
+	var target_y := current_y + wrapf(start_rot.y - current_y, -PI, PI)
+	var final_rot := Vector3(start_rot.x, target_y, start_rot.z)
 	var t_rot := create_tween()
 	t_rot.set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
-	t_rot.tween_property(self, "global_rotation", start_rot, 0.18)
+	t_rot.tween_property(self, "global_rotation", final_rot, 0.18)
 	await t_rot.finished
 
 	set_animation_state(AnimState.IDLE)
 
-func _play_attack_anim() -> void:
-	# A punchy squash + little color punch.
-	var t := create_tween()
-	t.set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
-	t.tween_property(visual, "scale", Vector3(1.12, 0.88, 1.12), 0.12)
-	t.tween_property(visual, "scale", Vector3.ONE, 0.12)
-	for m in _mesh_materials:
-		if m is StandardMaterial3D:
-			t.parallel().tween_property(m, "albedo_color", _base_color.lightened(0.25), 0.10)
-			t.parallel().tween_property(m, "albedo_color", _base_color, 0.20)
-	await t.finished
+## Reproduce la animación de ataque (Interact del rig si existe) y espera a que termine.
+func _play_attack_animation() -> void:
+	var ap: AnimationPlayer = _get_anim_ap()
+	if ap and ap.has_animation("attack"):
+		set_animation_state(AnimState.ATTACK)
+		await ap.animation_finished
+	else:
+		# Fallback: squash + flash para unidades sin animación de ataque.
+		var t := create_tween()
+		t.set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+		t.tween_property(visual, "scale", Vector3(1.12, 0.88, 1.12), 0.12)
+		t.tween_property(visual, "scale", Vector3.ONE, 0.12)
+		for m in _mesh_materials:
+			if m is StandardMaterial3D:
+				t.parallel().tween_property(m, "albedo_color", _base_color.lightened(0.25), 0.10)
+				t.parallel().tween_property(m, "albedo_color", _base_color, 0.20)
+		await t.finished

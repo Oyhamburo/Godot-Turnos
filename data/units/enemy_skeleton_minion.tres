@@ -1,0 +1,12 @@
+[gd_resource type="Resource" script_class="UnitData" load_steps=2 format=3 uid="uid://c3skeleton_minion"]
+
+[ext_resource type="Script" uid="uid://6qt31kc823g4" path="res://scripts/data/UnitData.gd" id="1_script"]
+
+[resource]
+script = ExtResource("1_script")
+display_name = "Esqueleto Minion"
+team = 1
+max_hp = 28
+speed = 10
+attack = 6
+color = Color(0.75, 0.7, 0.65, 1)

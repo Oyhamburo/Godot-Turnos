@@ -1,21 +1,30 @@
-[gd_resource type="Resource" script_class="BattleConfig" load_steps=8 format=3 uid="uid://nditeiaa6143"]
+[gd_resource type="Resource" script_class="BattleConfig" load_steps=10 format=3 uid="uid://nditeiaa6143"]
 
 [ext_resource type="Script" uid="uid://cq21odp2u6udf" path="res://scripts/data/BattleConfig.gd" id="1_script"]
 [ext_resource type="PackedScene" uid="uid://b1p1a1y3r0u1t" path="res://scenes/units/PlayerUnit.tscn" id="2_pscene"]
-[ext_resource type="PackedScene" uid="uid://07qrojli0rfu" path="res://scenes/units/EnemyBruto.tscn" id="3_bruto"]
-[ext_resource type="Resource" path="res://data/units/enemy_skeleton_warrior.tres" id="4_7sxnk"]
-[ext_resource type="Resource" uid="uid://bat2n2xy8r2jl" path="res://data/units/enemy_bruto.tres" id="4_bruto_data"]
-[ext_resource type="PackedScene" uid="uid://e1n3nau1n1t0" path="res://scenes/units/EnemyUnit.tscn" id="5_common"]
-[ext_resource type="PackedScene" uid="uid://b1h4syywnk48u" path="res://scenes/units/EnemySkeletonWarrior.tscn" id="5_xppkg"]
+[ext_resource type="PackedScene" uid="uid://b1h4syywnk48u" path="res://scenes/units/EnemySkeletonWarrior.tscn" id="3_warrior"]
+[ext_resource type="Resource" uid="uid://c3skeleton_warrior" path="res://data/units/enemy_skeleton_warrior.tres" id="4_warrior_data"]
+[ext_resource type="PackedScene" path="res://scenes/units/EnemySkeletonMage.tscn" id="5_mage"]
+[ext_resource type="Resource" uid="uid://c3skeleton_mage" path="res://data/units/enemy_skeleton_mage.tres" id="6_mage_data"]
+[ext_resource type="PackedScene" path="res://scenes/units/EnemySkeletonMinion.tscn" id="7_minion"]
+[ext_resource type="Resource" uid="uid://c3skeleton_minion" path="res://data/units/enemy_skeleton_minion.tres" id="8_minion_data"]
+[ext_resource type="PackedScene" path="res://scenes/units/EnemySkeletonRogue.tscn" id="9_rogue"]
+[ext_resource type="Resource" uid="uid://c3skeleton_rogue" path="res://data/units/enemy_skeleton_rogue.tres" id="10_rogue_data"]
 
 [resource]
 script = ExtResource("1_script")
 battle_name = "Batalla difícil"
 player_scene = ExtResource("2_pscene")
 players_count = 4
-enemy_bruto_scene = ExtResource("3_bruto")
-enemy_bruto_data = ExtResource("4_bruto_data")
-enemy_common_scene = ExtResource("5_common")
-enemy_skeleton_count = 2
-enemy_skeleton_scene = ExtResource("5_xppkg")
-enemy_skeleton_data = ExtResource("4_7sxnk")
+enemy_skeleton_warrior_count = 1
+enemy_skeleton_warrior_scene = ExtResource("3_warrior")
+enemy_skeleton_warrior_data = ExtResource("4_warrior_data")
+enemy_skeleton_mage_count = 1
+enemy_skeleton_mage_scene = ExtResource("5_mage")
+enemy_skeleton_mage_data = ExtResource("6_mage_data")
+enemy_skeleton_minion_count = 1
+enemy_skeleton_minion_scene = ExtResource("7_minion")
+enemy_skeleton_minion_data = ExtResource("8_minion_data")
+enemy_skeleton_rogue_count = 1
+enemy_skeleton_rogue_scene = ExtResource("9_rogue")
+enemy_skeleton_rogue_data = ExtResource("10_rogue_data")

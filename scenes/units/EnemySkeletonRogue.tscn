@@ -1,7 +1,7 @@
-[gd_scene load_steps=6 format=3 uid="uid://b1h4syywnk48u"]
+[gd_scene load_steps=6 format=3 uid="uid://c2skeleton_rogue"]
 
 [ext_resource type="Script" uid="uid://cyd28nq8egt1u" path="res://scripts/units/EnemyUnit.gd" id="1_eu"]
-[ext_resource type="PackedScene" uid="uid://wly1n5t0lre6" path="res://assets/KayKit_Skeletons_1.1_FREE/characters/gltf/Skeleton_Warrior.glb" id="2_glb"]
+[ext_resource type="PackedScene" uid="uid://b8ge2wimibis5" path="res://assets/KayKit_Skeletons_1.1_FREE/characters/gltf/Skeleton_Rogue.glb" id="2_glb"]
 
 [sub_resource type="CapsuleShape3D" id="CapsuleShape3D_1"]
 radius = 0.35
@@ -17,7 +17,7 @@ emission_energy_multiplier = 2.0
 [sub_resource type="TorusMesh" id="TorusMesh_1"]
 outer_radius = 0.65
 
-[node name="EnemySkeletonWarrior" type="CharacterBody3D"]
+[node name="EnemySkeletonRogue" type="CharacterBody3D"]
 collision_layer = 2
 collision_mask = 3
 script = ExtResource("1_eu")
@@ -29,7 +29,7 @@ shape = SubResource("CapsuleShape3D_1")
 [node name="Visual" type="Node3D" parent="."]
 transform = Transform3D(-1, 0, 0, 0, 1, 0, 0, 0, -1, 0, 0, 0)
 
-[node name="Skeleton_Warrior" parent="Visual" instance=ExtResource("2_glb")]
+[node name="Skeleton_Rogue" parent="Visual" instance=ExtResource("2_glb")]
 
 [node name="AnimationPlayer" type="AnimationPlayer" parent="Visual"]
 

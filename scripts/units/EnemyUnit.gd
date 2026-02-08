@@ -35,7 +35,8 @@ const SKELETON_ANIMS := {
 	"spawn_air": RigAnim.SPAWN_AIR,
 	"idle": RigAnim.IDLE_B,
 	"death": RigAnim.DEATH_A,
-	"hit": RigAnim.HIT_B
+	"hit": RigAnim.HIT_B,
+	"attack": RigAnim.INTERACT
 }
 
 func _ready() -> void:
@@ -46,12 +47,17 @@ func _ready() -> void:
 	set_animation_state(AnimState.SPAWN)
 
 ## Carga el GLB del rig, copia las animaciones spawn_air, idle, death y hit,
-## reasigna las rutas al Skeleton_Warrior y las registra en nuestro AnimationPlayer.
+## reasigna las rutas al nodo esqueleto (GLB bajo Visual) y las registra en nuestro AnimationPlayer.
 func _setup_skeleton_animations() -> void:
 	var ap: AnimationPlayer = visual.get_node_or_null("AnimationPlayer")
 	if not ap:
 		return
-	var skel_root: Node = visual.get_node_or_null("Skeleton_Warrior")
+	var skel_root: Node = null
+	for c in visual.get_children():
+		if c is AnimationPlayer:
+			continue
+		skel_root = c
+		break
 	if not skel_root:
 		return
 

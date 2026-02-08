@@ -1,10 +1,9 @@
-[gd_scene load_steps=11 format=3 uid="uid://b4t7l3s3c3n3"]
+[gd_scene load_steps=10 format=3 uid="uid://b4t7l3s3c3n3"]
 
 [ext_resource type="Script" uid="uid://mmrdf5rvhs41" path="res://scripts/combat/CombatManager.gd" id="1_cm"]
 [ext_resource type="PackedScene" uid="uid://b1p1a1y3r0u1t" path="res://scenes/units/PlayerUnit.tscn" id="2_pu"]
-[ext_resource type="PackedScene" uid="uid://07qrojli0rfu" path="res://scenes/units/EnemyBruto.tscn" id="3_bruto"]
-[ext_resource type="Resource" uid="uid://bat2n2xy8r2jl" path="res://data/units/enemy_bruto.tres" id="4_bruto"]
-[ext_resource type="PackedScene" uid="uid://e1n3nau1n1t0" path="res://scenes/units/EnemyUnit.tscn" id="5_common"]
+[ext_resource type="PackedScene" uid="uid://b1h4syywnk48u" path="res://scenes/units/EnemySkeletonWarrior.tscn" id="3_warrior"]
+[ext_resource type="Resource" uid="uid://c3skeleton_warrior" path="res://data/units/enemy_skeleton_warrior.tres" id="4_warrior_data"]
 [ext_resource type="Theme" uid="uid://3c22hxeo5t8" path="res://ui/theme.tres" id="6_theme"]
 [ext_resource type="Script" uid="uid://bi0l4tdmadc2c" path="res://scripts/ui/BattleUI.gd" id="7_bui"]
 [ext_resource type="Environment" uid="uid://b7lq3cv6rbp6a" path="res://default_env.tres" id="8_env"]
@@ -44,10 +43,8 @@ fov = 55.0
 [node name="CombatManager" type="Node" parent="."]
 script = ExtResource("1_cm")
 player_scene = ExtResource("2_pu")
-enemy_bruto_scene = ExtResource("3_bruto")
-enemy_bruto_data = ExtResource("4_bruto")
-enemy_common_count = 5
-enemy_common_scene = ExtResource("5_common")
+enemy_skeleton_warrior_scene = ExtResource("3_warrior")
+enemy_skeleton_warrior_data = ExtResource("4_warrior_data")
 
 [node name="UI" type="CanvasLayer" parent="."]
 
