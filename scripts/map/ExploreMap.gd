@@ -11,15 +11,18 @@ const MAIN_MENU_SCENE := "res://scenes/MainMenu.tscn"
 @onready var back_button: Button = $UI/BackButton
 
 var _valid_hexes: Array[Vector2i] = []
+var _blocked_hexes: Array[Vector2i] = []
 var _move_in_progress: bool = false
 
 func _ready() -> void:
 	_build_valid_hexes_from_tiles()
+	_build_blocked_hexes_from_buildings()
 	if _valid_hexes.is_empty():
 		push_warning("ExploreMap: no hay hexes en DefaultMap/Tiles. Añade instancias de scenes/hex/.")
 	else:
 		if explore_player.has_method("set_initial_hex"):
-			explore_player.set_initial_hex(_valid_hexes[0])
+			var start_hex: Vector2i = _first_walkable_hex()
+			explore_player.set_initial_hex(start_hex)
 	if explore_player.has_signal("move_finished"):
 		explore_player.move_finished.connect(_on_player_move_finished)
 	if back_button:
@@ -41,6 +44,28 @@ func _build_valid_hexes_from_tiles() -> void:
 				break
 		if not already:
 			_valid_hexes.append(hex)
+
+func _build_blocked_hexes_from_buildings() -> void:
+	_blocked_hexes.clear()
+	var buildings: Node = default_map.get_node_or_null("Buildings")
+	if buildings == null:
+		return
+	for child in buildings.get_children():
+		if child is Node3D:
+			var hex: Vector2i = HexGrid.world_to_hex(child.global_position.x, child.global_position.z)
+			var already: bool = false
+			for h in _blocked_hexes:
+				if h.x == hex.x and h.y == hex.y:
+					already = true
+					break
+			if not already:
+				_blocked_hexes.append(hex)
+
+func _first_walkable_hex() -> Vector2i:
+	for h in _valid_hexes:
+		if _is_valid_hex(h):
+			return h
+	return _valid_hexes[0]
 
 func _on_player_move_finished() -> void:
 	_move_in_progress = false
@@ -75,6 +100,9 @@ func _handle_click(screen_pos: Vector2) -> void:
 		explore_player.move_to_hex(click_hex)
 
 func _is_valid_hex(hex: Vector2i) -> bool:
+	for b in _blocked_hexes:
+		if b.x == hex.x and b.y == hex.y:
+			return false
 	for v in _valid_hexes:
 		if v.x == hex.x and v.y == hex.y:
 			return true
