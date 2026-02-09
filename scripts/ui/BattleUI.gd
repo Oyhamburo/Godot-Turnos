@@ -5,6 +5,8 @@ extends Control
 @export var transition_camera_path: NodePath
 @export var enemy_camera_path: NodePath
 @export var presentation_camera_path: NodePath
+@export var turn_menu_camera_path: NodePath
+@export var attack_closeup_camera_path: NodePath
 
 @onready var timeline_hbox: HBoxContainer = %TimelineHBox
 @onready var players_list: VBoxContainer = %PlayersList
@@ -31,6 +33,8 @@ var main_cam: Camera3D
 var transition_cam: Camera3D
 var enemy_cam: Camera3D
 var presentation_cam: Camera3D
+var turn_menu_cam: Camera3D
+var attack_closeup_cam: Camera3D
 
 const CAMERA_TRANSITION_DURATION := 0.7
 const PRESENTATION_DURATION := 2.5
@@ -39,6 +43,23 @@ const CLOSEUP_OFFSET_LOCAL := Vector3(3, 2, -5)
 const CLOSEUP_OFFSET_OPPOSITE := Vector3(-3, 2, 5)
 const ENEMY_CLOSEUP_OFFSET_LOCAL := Vector3(0, 2, -4)
 const CLOSEUP_FOV := 45.0
+
+# Posiciona una cámara en unit + offset_local y la orienta hacia el personaje
+func _position_camera_for_unit(cam: Camera3D, unit: Unit, offset_local: Vector3) -> void:
+	if cam == null or unit == null:
+		return
+	cam.global_position = unit.global_position + unit.global_transform.basis * offset_local
+	var look_at_point: Vector3 = unit.global_position + Vector3(0, 1.2, 0)
+	_safe_look_at(cam, look_at_point)
+	cam.fov = CLOSEUP_FOV
+
+# look_at con un "up" que evita colinealidad con la dirección al objetivo (evita el warning de basis.cpp)
+func _safe_look_at(cam: Node3D, target_point: Vector3) -> void:
+	var dir: Vector3 = (target_point - cam.global_position).normalized()
+	var up: Vector3 = Vector3.UP
+	if abs(dir.dot(Vector3.UP)) > 0.99:
+		up = Vector3.RIGHT
+	cam.look_at(target_point, up)
 
 # Cuatro nombres de ataque por clase de jugador (todos ejecutan el mismo ataque).
 const ATTACK_NAMES_BY_CLASS: Dictionary = {
@@ -58,7 +79,6 @@ var _selected_target: Unit
 var _selected_ability_index: int = -1
 var _enemy_rows := {} # Unit -> Button
 var _camera_tween: Tween
-var _transition_done_callback: Callable = Callable()
 var _intro_done := true
 
 var _turn_slot_scene := preload("res://scenes/ui/TurnSlot.tscn")
@@ -69,6 +89,12 @@ func _ready() -> void:
 	transition_cam = get_node(transition_camera_path) if transition_camera_path else null
 	enemy_cam = get_node(enemy_camera_path) if enemy_camera_path else null
 	presentation_cam = get_node(presentation_camera_path) if presentation_camera_path else null
+	turn_menu_cam = get_node(turn_menu_camera_path) if turn_menu_camera_path else null
+	attack_closeup_cam = get_node(attack_closeup_camera_path) if attack_closeup_camera_path else null
+	if turn_menu_cam:
+		turn_menu_cam.current = false
+	if attack_closeup_cam:
+		attack_closeup_cam.current = false
 	if presentation_cam:
 		_intro_done = false
 		presentation_cam.current = true
@@ -176,7 +202,11 @@ func _apply_camera_for_current_turn() -> void:
 		_use_main_camera()
 		_switch_camera_for_turn(_current)
 	else:
-		_switch_camera_for_turn(_current, _show_turn_action_menu, true)
+		if turn_menu_cam:
+			_position_camera_for_unit(turn_menu_cam, _current, CLOSEUP_OFFSET_OPPOSITE)
+			_transition_to_camera(turn_menu_cam, _show_turn_action_menu)
+		else:
+			_switch_camera_for_turn(_current, _show_turn_action_menu, true)
 
 func _transition_to_player_then_show_attacks(unit: Unit) -> void:
 	_switch_camera_for_turn(unit, _show_attack_options)
@@ -196,7 +226,11 @@ func _on_choose_attack_pressed() -> void:
 	if _current == null:
 		return
 	_hide_turn_action_menu()
-	_transition_to_closeup(_current, _show_attack_options, CLOSEUP_OFFSET_LOCAL)
+	if attack_closeup_cam:
+		_position_camera_for_unit(attack_closeup_cam, _current, CLOSEUP_OFFSET_LOCAL)
+		_transition_to_camera(attack_closeup_cam, _show_attack_options)
+	else:
+		_transition_to_closeup(_current, _show_attack_options, CLOSEUP_OFFSET_LOCAL)
 
 func _on_use_item_pressed() -> void:
 	pass
@@ -355,16 +389,15 @@ func _switch_camera_for_turn(unit: Unit, on_closeup_done: Callable = Callable(),
 func _transition_to_closeup(unit: Unit, on_done: Callable = Callable(), offset_local: Vector3 = CLOSEUP_OFFSET_LOCAL) -> void:
 	if transition_cam == null or unit == null:
 		return
-	_transition_done_callback = on_done
+	var done_cb: Callable = on_done
 	if _camera_tween and _camera_tween.is_valid():
 		_camera_tween.kill()
 	var from_cam: Camera3D = get_viewport().get_camera_3d()
 	if from_cam == null:
 		if main_cam:
 			main_cam.current = true
-		if _transition_done_callback.is_valid():
-			_transition_done_callback.call()
-			_transition_done_callback = Callable()
+		if done_cb.is_valid():
+			done_cb.call()
 		return
 	var from_position: Vector3 = from_cam.global_position
 	var target_position: Vector3 = unit.global_position + unit.global_transform.basis * offset_local
@@ -381,29 +414,27 @@ func _transition_to_closeup(unit: Unit, on_done: Callable = Callable(), offset_l
 	_camera_tween.tween_method(
 		func(t: float) -> void:
 			transition_cam.global_position = from_position.lerp(target_position, t)
-			transition_cam.look_at(look_at_point),
+			_safe_look_at(transition_cam, look_at_point),
 		0.0, 1.0, CAMERA_TRANSITION_DURATION
 	)
 	_camera_tween.tween_callback(func() -> void:
-		if _transition_done_callback.is_valid():
-			_transition_done_callback.call()
-			_transition_done_callback = Callable()
+		if done_cb.is_valid():
+			done_cb.call()
 	)
 	return
 
 func _transition_to_enemy_closeup(enemy: Unit, on_done: Callable = Callable()) -> void:
 	if transition_cam == null or enemy == null:
 		return
-	_transition_done_callback = on_done
+	var done_cb: Callable = on_done
 	if _camera_tween and _camera_tween.is_valid():
 		_camera_tween.kill()
 	var from_cam: Camera3D = get_viewport().get_camera_3d()
 	if from_cam == null:
 		if main_cam:
 			main_cam.current = true
-		if _transition_done_callback.is_valid():
-			_transition_done_callback.call()
-			_transition_done_callback = Callable()
+		if done_cb.is_valid():
+			done_cb.call()
 		return
 
 	var target_position: Vector3 = enemy.global_position + enemy.global_transform.basis * ENEMY_CLOSEUP_OFFSET_LOCAL
@@ -412,12 +443,11 @@ func _transition_to_enemy_closeup(enemy: Unit, on_done: Callable = Callable()) -
 	if from_cam == transition_cam:
 		# Ya estamos en close-up de otro enemigo: corte directo, sin transición intermedia
 		transition_cam.global_position = target_position
-		transition_cam.look_at(look_at_point)
+		_safe_look_at(transition_cam, look_at_point)
 		transition_cam.fov = CLOSEUP_FOV
 		transition_cam.current = true
-		if _transition_done_callback.is_valid():
-			_transition_done_callback.call()
-			_transition_done_callback = Callable()
+		if done_cb.is_valid():
+			done_cb.call()
 		return
 
 	var from_position: Vector3 = from_cam.global_position
@@ -432,13 +462,12 @@ func _transition_to_enemy_closeup(enemy: Unit, on_done: Callable = Callable()) -
 	_camera_tween.tween_method(
 		func(t: float) -> void:
 			transition_cam.global_position = from_position.lerp(target_position, t)
-			transition_cam.look_at(look_at_point),
+			_safe_look_at(transition_cam, look_at_point),
 		0.0, 1.0, CAMERA_TRANSITION_DURATION
 	)
 	_camera_tween.tween_callback(func() -> void:
-		if _transition_done_callback.is_valid():
-			_transition_done_callback.call()
-			_transition_done_callback = Callable()
+		if done_cb.is_valid():
+			done_cb.call()
 	)
 
 func _transition_to_camera(target: Camera3D, on_done: Callable = Callable(), look_at_point: Variant = null) -> void:
@@ -446,7 +475,7 @@ func _transition_to_camera(target: Camera3D, on_done: Callable = Callable(), loo
 	if target == null or transition_cam == null:
 		print("[CAM] _transition_to_camera: target=%s or transition_cam null, return" % target_name)
 		return
-	_transition_done_callback = on_done
+	var done_cb: Callable = on_done
 	if _camera_tween and _camera_tween.is_valid():
 		print("[CAM] _transition_to_camera: killing previous tween")
 		_camera_tween.kill()
@@ -458,9 +487,8 @@ func _transition_to_camera(target: Camera3D, on_done: Callable = Callable(), loo
 			target.current = true
 		if from_cam and from_cam != target:
 			from_cam.current = false
-		if _transition_done_callback.is_valid():
-			_transition_done_callback.call()
-			_transition_done_callback = Callable()
+		if done_cb.is_valid():
+			done_cb.call()
 		return
 	var use_look_at: bool = look_at_point is Vector3
 	print("[CAM] _transition_to_camera START from=%s -> target=%s use_look_at=%s" % [from_name, target_name, use_look_at])
@@ -484,7 +512,7 @@ func _transition_to_camera(target: Camera3D, on_done: Callable = Callable(), loo
 		_camera_tween.tween_method(
 			func(t: float) -> void:
 				transition_cam.global_position = from_position.lerp(target_position, t)
-				transition_cam.look_at(look_at_vec),
+				_safe_look_at(transition_cam, look_at_vec),
 			0.0, 1.0, CAMERA_TRANSITION_DURATION
 		)
 	else:
@@ -494,9 +522,8 @@ func _transition_to_camera(target: Camera3D, on_done: Callable = Callable(), loo
 		print("[CAM] _transition_to_camera DONE -> %s" % target_name)
 		target.current = true
 		transition_cam.current = false
-		if _transition_done_callback.is_valid():
-			_transition_done_callback.call()
-			_transition_done_callback = Callable()
+		if done_cb.is_valid():
+			done_cb.call()
 	)
 
 func _get_player_class(unit: Unit) -> String:
