@@ -31,8 +31,6 @@ shadow_enabled = true
 [node name="FaceLight" type="DirectionalLight3D" parent="."]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, -1, 0, 0, 0)
 light_energy = 0.45
-light_color = Color(1, 1, 1, 1)
-shadow_enabled = false
 
 [node name="WorldEnvironment" type="WorldEnvironment" parent="."]
 environment = ExtResource("18_env")
@@ -53,13 +51,20 @@ transform = Transform3D(-6.029977, 0, 0.019925846, 0, 1.7511083, 0, -0.12104556,
 
 [node name="MainCamera" type="Camera3D" parent="."]
 transform = Transform3D(1, 0, 0, 0, 0.86, 0.51, 0, -0.51, 0.86, 0, 10, 15)
-current = true
 fov = 50.0
 
 [node name="TransitionCamera" type="Camera3D" parent="."]
-transform = Transform3D(1, 0, 0, 0, 0.86, 0.51, 0, -0.51, 0.86, 0, 10, 15)
-current = false
+transform = Transform3D(-0.5877852, -0.10838084, 0.80160195, 0, 0.99083453, 0.13396609, -0.809017, 0.07874328, -0.5823979, 0, 10, 15)
 fov = 50.0
+
+[node name="EnemyCamera" type="Camera3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0.6, 0.8, 0, 4, 2)
+fov = 50.0
+
+[node name="PresentationCamera" type="Camera3D" parent="."]
+transform = Transform3D(0.9659258, -0.1294095, 0.2241439, 0, 0.8660254, 0.5, -0.258819, -0.4829629, 0.8365163, 0, 14, 22)
+current = true
+fov = 55.0
 
 [node name="Units" type="Node3D" parent="."]
 
@@ -94,6 +99,8 @@ script = ExtResource("17_bui")
 combat_manager_path = NodePath("../../CombatManager")
 main_camera_path = NodePath("../../MainCamera")
 transition_camera_path = NodePath("../../TransitionCamera")
+enemy_camera_path = NodePath("../../EnemyCamera")
+presentation_camera_path = NodePath("../../PresentationCamera")
 
 [node name="Safe" type="MarginContainer" parent="UI/BattleUIRoot"]
 layout_mode = 0
@@ -227,11 +234,54 @@ custom_minimum_size = Vector2(180, 64)
 layout_mode = 2
 text = "Pasar"
 
+[node name="NextTargetButton" type="Button" parent="UI/BattleUIRoot/Safe/VBox/ActionPanel/ActionMargin/ActionHBox"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(180, 64)
+layout_mode = 2
+text = "Siguiente"
+
+[node name="TurnActionPanel" type="PanelContainer" parent="UI/BattleUIRoot"]
+unique_name_in_owner = true
+visible = false
+layout_mode = 0
+offset_left = 400.0
+offset_top = 200.0
+offset_right = 700.0
+offset_bottom = 380.0
+
+[node name="TurnActionMargin" type="MarginContainer" parent="UI/BattleUIRoot/TurnActionPanel"]
+layout_mode = 2
+theme_override_constants/margin_left = 12
+theme_override_constants/margin_top = 10
+theme_override_constants/margin_right = 12
+theme_override_constants/margin_bottom = 10
+
+[node name="TurnActionVBox" type="VBoxContainer" parent="UI/BattleUIRoot/TurnActionPanel/TurnActionMargin"]
+layout_mode = 2
+theme_override_constants/separation = 10
+
+[node name="ChooseAttackButton" type="Button" parent="UI/BattleUIRoot/TurnActionPanel/TurnActionMargin/TurnActionVBox"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(260, 56)
+layout_mode = 2
+text = "Elegir ataque"
+
+[node name="UseItemButton" type="Button" parent="UI/BattleUIRoot/TurnActionPanel/TurnActionMargin/TurnActionVBox"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(260, 56)
+layout_mode = 2
+text = "Usar Item"
+
+[node name="FleeButton" type="Button" parent="UI/BattleUIRoot/TurnActionPanel/TurnActionMargin/TurnActionVBox"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(260, 56)
+layout_mode = 2
+text = "Huir"
+
 [node name="AttackOptionsPanel" type="PanelContainer" parent="UI/BattleUIRoot"]
 unique_name_in_owner = true
 visible = false
 layout_mode = 0
-anchors_preset = 0
 offset_left = 400.0
 offset_top = 280.0
 offset_right = 900.0

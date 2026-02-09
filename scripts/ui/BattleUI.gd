@@ -3,6 +3,8 @@ extends Control
 @export var combat_manager_path: NodePath
 @export var main_camera_path: NodePath
 @export var transition_camera_path: NodePath
+@export var enemy_camera_path: NodePath
+@export var presentation_camera_path: NodePath
 
 @onready var timeline_hbox: HBoxContainer = %TimelineHBox
 @onready var players_list: VBoxContainer = %PlayersList
@@ -10,6 +12,7 @@ extends Control
 @onready var turn_label: Label = %TurnLabel
 @onready var attack_button: Button = %AttackButton
 @onready var pass_button: Button = %PassButton
+@onready var next_target_button: Button = %NextTargetButton
 @onready var end_dialog: Control = %EndDialog
 @onready var end_label: Label = %EndLabel
 @onready var end_accept: Button = %EndAccept
@@ -18,14 +21,23 @@ extends Control
 @onready var attack_option_2: Button = %AttackOption2
 @onready var attack_option_3: Button = %AttackOption3
 @onready var attack_option_4: Button = %AttackOption4
+@onready var turn_action_panel: PanelContainer = %TurnActionPanel
+@onready var choose_attack_button: Button = %ChooseAttackButton
+@onready var use_item_button: Button = %UseItemButton
+@onready var flee_button: Button = %FleeButton
 
 var combat: CombatManager
 var main_cam: Camera3D
 var transition_cam: Camera3D
+var enemy_cam: Camera3D
+var presentation_cam: Camera3D
 
 const CAMERA_TRANSITION_DURATION := 0.7
+const PRESENTATION_DURATION := 2.5
 # Posición de la cámara close-up respecto al jugador (mismo offset que tenía CloseUpCamera en las escenas)
-const CLOSEUP_OFFSET_LOCAL := Vector3(2, 2.2, -5)
+const CLOSEUP_OFFSET_LOCAL := Vector3(3, 2, -5)
+const CLOSEUP_OFFSET_OPPOSITE := Vector3(-3, 2, 5)
+const ENEMY_CLOSEUP_OFFSET_LOCAL := Vector3(0, 2, -4)
 const CLOSEUP_FOV := 45.0
 
 # Cuatro nombres de ataque por clase de jugador (todos ejecutan el mismo ataque).
@@ -43,9 +55,11 @@ const ATTACK_PANEL_SIZE := Vector2(500, 80)
 
 var _current: Unit
 var _selected_target: Unit
+var _selected_ability_index: int = -1
 var _enemy_rows := {} # Unit -> Button
 var _camera_tween: Tween
 var _transition_done_callback: Callable = Callable()
+var _intro_done := true
 
 var _turn_slot_scene := preload("res://scenes/ui/TurnSlot.tscn")
 
@@ -53,22 +67,50 @@ func _ready() -> void:
 	combat = get_node(combat_manager_path)
 	main_cam = get_node(main_camera_path) if main_camera_path else null
 	transition_cam = get_node(transition_camera_path) if transition_camera_path else null
-	if main_cam:
-		main_cam.current = true
-	if transition_cam:
-		transition_cam.current = false
+	enemy_cam = get_node(enemy_camera_path) if enemy_camera_path else null
+	presentation_cam = get_node(presentation_camera_path) if presentation_camera_path else null
+	if presentation_cam:
+		_intro_done = false
+		presentation_cam.current = true
+		if main_cam:
+			main_cam.current = false
+		if transition_cam:
+			transition_cam.current = false
+		if enemy_cam:
+			enemy_cam.current = false
+	else:
+		if main_cam:
+			main_cam.current = (enemy_cam == null)
+		if transition_cam:
+			transition_cam.current = false
+		if enemy_cam:
+			enemy_cam.current = true
 
 	attack_button.pressed.connect(_on_attack_pressed)
 	pass_button.pressed.connect(_on_pass_pressed)
+	if next_target_button:
+		next_target_button.pressed.connect(_on_next_target_pressed)
 	end_accept.pressed.connect(_on_end_accept)
 	attack_option_1.pressed.connect(_on_attack_option_pressed.bind(0))
 	attack_option_2.pressed.connect(_on_attack_option_pressed.bind(1))
 	attack_option_3.pressed.connect(_on_attack_option_pressed.bind(2))
 	attack_option_4.pressed.connect(_on_attack_option_pressed.bind(3))
+	if choose_attack_button:
+		choose_attack_button.pressed.connect(_on_choose_attack_pressed)
+	if use_item_button:
+		use_item_button.pressed.connect(_on_use_item_pressed)
+	if flee_button:
+		flee_button.pressed.connect(_on_flee_pressed)
 
 	end_dialog.visible = false
 	attack_button.disabled = true
+	attack_button.visible = true
+	if next_target_button:
+		next_target_button.visible = false
+		next_target_button.disabled = true
 	attack_options_panel.visible = false
+	if turn_action_panel:
+		turn_action_panel.visible = false
 
 	combat.units_spawned.connect(_on_units_spawned)
 	combat.timeline_updated.connect(_on_timeline_updated)
@@ -82,6 +124,23 @@ func _ready() -> void:
 
 func _on_units_spawned(players, enemies) -> void:
 	_rebuild_unit_lists(players, enemies)
+	if presentation_cam and not _intro_done:
+		presentation_cam.current = true
+		if main_cam:
+			main_cam.current = false
+		if transition_cam:
+			transition_cam.current = false
+		if enemy_cam:
+			enemy_cam.current = false
+		get_tree().create_timer(PRESENTATION_DURATION).timeout.connect(_on_presentation_ended)
+	elif enemy_cam:
+		enemy_cam.current = true
+		if main_cam:
+			main_cam.current = false
+		if transition_cam:
+			transition_cam.current = false
+	elif main_cam:
+		main_cam.current = true
 
 func _on_timeline_updated(order, current) -> void:
 	_rebuild_timeline(order, current)
@@ -89,18 +148,61 @@ func _on_timeline_updated(order, current) -> void:
 func _on_turn_changed(current: Unit) -> void:
 	_current = current
 	_selected_target = null
+	_selected_ability_index = -1
 	_clear_enemy_selection_highlights()
 	attack_button.disabled = true
+	attack_button.visible = true
+	if next_target_button:
+		next_target_button.visible = false
+		next_target_button.disabled = true
 	_hide_attack_options()
-	print("[CAM] _on_turn_changed -> call_deferred(_maybe_use_main_camera)")
-	call_deferred("_maybe_use_main_camera")
+	_hide_turn_action_menu()
 
 	if _current:
 		turn_label.text = "Turno: %s" % _current.display_name
-		if _current.team != Unit.Team.PLAYER:
-			_switch_camera_for_turn(current)
+		if _intro_done or presentation_cam == null:
+			_apply_camera_for_current_turn()
 	else:
 		turn_label.text = "Turno: -"
+
+func _on_presentation_ended() -> void:
+	_intro_done = true
+	_apply_camera_for_current_turn()
+
+func _apply_camera_for_current_turn() -> void:
+	if _current == null:
+		return
+	if _current.team != Unit.Team.PLAYER:
+		_use_main_camera()
+		_switch_camera_for_turn(_current)
+	else:
+		_switch_camera_for_turn(_current, _show_turn_action_menu, true)
+
+func _transition_to_player_then_show_attacks(unit: Unit) -> void:
+	_switch_camera_for_turn(unit, _show_attack_options)
+
+func _show_turn_action_menu() -> void:
+	if attack_options_panel:
+		attack_options_panel.visible = false
+	_hide_target_selection_ui()
+	if turn_action_panel:
+		turn_action_panel.visible = true
+
+func _hide_turn_action_menu() -> void:
+	if turn_action_panel:
+		turn_action_panel.visible = false
+
+func _on_choose_attack_pressed() -> void:
+	if _current == null:
+		return
+	_hide_turn_action_menu()
+	_transition_to_closeup(_current, _show_attack_options, CLOSEUP_OFFSET_LOCAL)
+
+func _on_use_item_pressed() -> void:
+	pass
+
+func _on_flee_pressed() -> void:
+	get_tree().change_scene_to_file("res://scenes/MainMenu.tscn")
 
 func _on_state_changed(state: int) -> void:
 	var selecting := (state == CombatManager.State.SELECTING_TARGET)
@@ -108,10 +210,12 @@ func _on_state_changed(state: int) -> void:
 	if not selecting:
 		attack_button.disabled = true
 		_hide_attack_options()
+		_hide_target_selection_ui()
+		_hide_turn_action_menu()
 	if state == CombatManager.State.ANIMATING:
-		print("[CAM] _on_state_changed ANIMATING -> call_deferred(_maybe_use_main_camera)")
 		_hide_attack_options()
-		# Comprobar al frame siguiente; así is_running() ya es true y no se cancela la transición inversa
+		_hide_target_selection_ui()
+		_hide_turn_action_menu()
 		call_deferred("_maybe_use_main_camera")
 
 func _on_unit_died(_unit: Unit) -> void:
@@ -123,30 +227,80 @@ func _on_battle_ended(player_won: bool) -> void:
 	attack_button.disabled = true
 	pass_button.disabled = true
 	_hide_attack_options()
+	_hide_turn_action_menu()
 
 func _on_end_accept() -> void:
 	get_tree().change_scene_to_file("res://scenes/MainMenu.tscn")
 
 func _on_attack_pressed() -> void:
-	if _current == null or _selected_target == null:
+	if _current == null:
 		return
-	var look_back: Variant = null
-	if _current:
-		look_back = _current.global_position + Vector3(0, 1.2, 0)
-	print("[CAM] _on_attack_pressed -> _use_main_camera(look_back=%s)" % [look_back is Vector3])
+	if _selected_target != null and _selected_ability_index >= 0:
+		_use_main_camera()
+		combat.player_attack(_current, _selected_target, _selected_ability_index)
+		_hide_target_selection_ui()
+		return
+	if _selected_target == null:
+		return
+	var look_back: Variant = _current.global_position + Vector3(0, 1.2, 0)
 	_use_main_camera(look_back)
 	combat.player_attack(_current, _selected_target)
 
 func _on_attack_option_pressed(ability_index: int) -> void:
-	if _current == null or _selected_target == null:
+	if _current == null:
 		return
-	var look_back: Variant = null
-	if _current:
-		look_back = _current.global_position + Vector3(0, 1.2, 0)
-	print("[CAM] _on_attack_option_pressed -> _use_main_camera(look_back=%s)" % [look_back is Vector3])
-	_use_main_camera(look_back)
-	_hide_attack_options()
-	combat.player_attack(_current, _selected_target, ability_index)
+	_selected_ability_index = ability_index
+	var alive: Array[Unit] = []
+	for e in combat.enemies:
+		if is_instance_valid(e) and e.alive:
+			alive.append(e)
+	if alive.is_empty():
+		_selected_ability_index = -1
+		return
+	_selected_target = alive[0]
+	_clear_enemy_selection_highlights()
+	_selected_target.set_selected(true)
+	if _enemy_rows.has(_selected_target):
+		var btn: Button = _enemy_rows[_selected_target]
+		btn.button_pressed = true
+	_transition_to_enemy_closeup(_selected_target, _show_target_selection_ui)
+
+func _show_target_selection_ui() -> void:
+	attack_options_panel.visible = false
+	attack_button.visible = true
+	attack_button.disabled = false
+	attack_button.text = "Atacar"
+	if next_target_button:
+		next_target_button.visible = true
+		next_target_button.disabled = false
+
+func _hide_target_selection_ui() -> void:
+	attack_button.disabled = true
+	attack_button.text = "Atacar"
+	if next_target_button:
+		next_target_button.visible = false
+		next_target_button.disabled = true
+	_selected_ability_index = -1
+
+func _on_next_target_pressed() -> void:
+	var alive: Array[Unit] = []
+	for e in combat.enemies:
+		if is_instance_valid(e) and e.alive:
+			alive.append(e)
+	if alive.is_empty() or _selected_target == null:
+		return
+	var idx: int = alive.find(_selected_target)
+	if idx < 0:
+		idx = 0
+	idx = (idx + 1) % alive.size()
+	_selected_target = alive[idx]
+	_clear_enemy_selection_highlights()
+	_selected_target.set_selected(true)
+	for u in _enemy_rows.keys():
+		var btn: Button = _enemy_rows[u]
+		if btn:
+			btn.button_pressed = (u == _selected_target)
+	_transition_to_enemy_closeup(_selected_target, Callable())
 
 func _on_pass_pressed() -> void:
 	combat.player_pass()
@@ -180,26 +334,25 @@ func _use_main_camera(look_at_point: Variant = null) -> void:
 		if active and active != main_cam:
 			active.current = false
 
-func _switch_camera_for_turn(unit: Unit, on_closeup_done: Callable = Callable()) -> void:
+func _switch_camera_for_turn(unit: Unit, on_closeup_done: Callable = Callable(), use_opposite_side: bool = false) -> void:
 	if main_cam == null:
 		return
 	if unit.team != Unit.Team.PLAYER:
 		_use_main_camera()
 		return
-	# Una sola cámara (TransitionCamera) hace ida y vuelta a cada jugador
+	var offset_to_use: Vector3 = CLOSEUP_OFFSET_OPPOSITE if use_opposite_side else CLOSEUP_OFFSET_LOCAL
 	var active: Camera3D = get_viewport().get_camera_3d()
 	if transition_cam and active:
-		if active == transition_cam and _current == unit:
+		if active == transition_cam and _current == unit and not use_opposite_side:
 			if on_closeup_done.is_valid():
 				on_closeup_done.call()
 			return
-		_transition_to_closeup(unit, on_closeup_done)
+		_transition_to_closeup(unit, on_closeup_done, offset_to_use)
 		return
-	# Sin transición: quedamos en cámara general
 	if on_closeup_done.is_valid():
 		on_closeup_done.call()
 
-func _transition_to_closeup(unit: Unit, on_done: Callable = Callable()) -> void:
+func _transition_to_closeup(unit: Unit, on_done: Callable = Callable(), offset_local: Vector3 = CLOSEUP_OFFSET_LOCAL) -> void:
 	if transition_cam == null or unit == null:
 		return
 	_transition_done_callback = on_done
@@ -207,12 +360,14 @@ func _transition_to_closeup(unit: Unit, on_done: Callable = Callable()) -> void:
 		_camera_tween.kill()
 	var from_cam: Camera3D = get_viewport().get_camera_3d()
 	if from_cam == null:
+		if main_cam:
+			main_cam.current = true
 		if _transition_done_callback.is_valid():
 			_transition_done_callback.call()
 			_transition_done_callback = Callable()
 		return
 	var from_position: Vector3 = from_cam.global_position
-	var target_position: Vector3 = unit.global_position + unit.global_transform.basis * CLOSEUP_OFFSET_LOCAL
+	var target_position: Vector3 = unit.global_position + unit.global_transform.basis * offset_local
 	var look_at_point: Vector3 = unit.global_position + Vector3(0, 1.2, 0)
 
 	transition_cam.global_transform = from_cam.global_transform
@@ -230,12 +385,61 @@ func _transition_to_closeup(unit: Unit, on_done: Callable = Callable()) -> void:
 		0.0, 1.0, CAMERA_TRANSITION_DURATION
 	)
 	_camera_tween.tween_callback(func() -> void:
-		# La TransitionCamera se queda activa (no hay cámara a la que cortar)
 		if _transition_done_callback.is_valid():
 			_transition_done_callback.call()
 			_transition_done_callback = Callable()
 	)
 	return
+
+func _transition_to_enemy_closeup(enemy: Unit, on_done: Callable = Callable()) -> void:
+	if transition_cam == null or enemy == null:
+		return
+	_transition_done_callback = on_done
+	if _camera_tween and _camera_tween.is_valid():
+		_camera_tween.kill()
+	var from_cam: Camera3D = get_viewport().get_camera_3d()
+	if from_cam == null:
+		if main_cam:
+			main_cam.current = true
+		if _transition_done_callback.is_valid():
+			_transition_done_callback.call()
+			_transition_done_callback = Callable()
+		return
+
+	var target_position: Vector3 = enemy.global_position + enemy.global_transform.basis * ENEMY_CLOSEUP_OFFSET_LOCAL
+	var look_at_point: Vector3 = enemy.global_position + Vector3(0, 1.2, 0)
+
+	if from_cam == transition_cam:
+		# Ya estamos en close-up de otro enemigo: corte directo, sin transición intermedia
+		transition_cam.global_position = target_position
+		transition_cam.look_at(look_at_point)
+		transition_cam.fov = CLOSEUP_FOV
+		transition_cam.current = true
+		if _transition_done_callback.is_valid():
+			_transition_done_callback.call()
+			_transition_done_callback = Callable()
+		return
+
+	var from_position: Vector3 = from_cam.global_position
+	transition_cam.global_transform = from_cam.global_transform
+	transition_cam.fov = CLOSEUP_FOV
+	transition_cam.current = true
+	from_cam.current = false
+
+	_camera_tween = create_tween()
+	_camera_tween.set_ease(Tween.EASE_IN_OUT)
+	_camera_tween.set_trans(Tween.TRANS_SINE)
+	_camera_tween.tween_method(
+		func(t: float) -> void:
+			transition_cam.global_position = from_position.lerp(target_position, t)
+			transition_cam.look_at(look_at_point),
+		0.0, 1.0, CAMERA_TRANSITION_DURATION
+	)
+	_camera_tween.tween_callback(func() -> void:
+		if _transition_done_callback.is_valid():
+			_transition_done_callback.call()
+			_transition_done_callback = Callable()
+	)
 
 func _transition_to_camera(target: Camera3D, on_done: Callable = Callable(), look_at_point: Variant = null) -> void:
 	var target_name: String = (target.name as String) if target else ""
@@ -326,6 +530,7 @@ func _show_attack_options() -> void:
 func _hide_attack_options() -> void:
 	if attack_options_panel:
 		attack_options_panel.visible = false
+	_hide_turn_action_menu()
 	attack_button.visible = true
 
 func _input(event: InputEvent) -> void:
@@ -385,15 +590,15 @@ func _select_enemy_target(target: Unit) -> void:
 	_selected_target = target
 	_clear_enemy_selection_highlights()
 	target.set_selected(true)
-
-	# Paso intermedio: transición a cámara de cerca, luego mostrar 4 botones de ataque.
-	attack_button.visible = false
-	_switch_camera_for_turn(_current, _show_attack_options)
-
-	# Also visually mark the row.
 	if _enemy_rows.has(target):
 		var btn: Button = _enemy_rows[target]
 		btn.button_pressed = true
+
+	if _selected_ability_index >= 0:
+		_transition_to_enemy_closeup(target, _show_target_selection_ui if (not next_target_button or not next_target_button.visible) else Callable())
+	else:
+		_selected_ability_index = 0
+		_transition_to_enemy_closeup(target, _show_target_selection_ui)
 
 func _clear_enemy_selection_highlights() -> void:
 	for e in combat.enemies:
