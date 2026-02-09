@@ -30,7 +30,7 @@ window/stretch/aspect="expand"
 
 [editor_plugins]
 
-enabled=PackedStringArray("res://addons/hex_map_editor/plugin.cfg")
+enabled=PackedStringArray("res://addons/hex_building_editor/plugin.cfg", "res://addons/hex_map_editor/plugin.cfg")
 
 [rendering]
 

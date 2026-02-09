@@ -6,7 +6,7 @@ extends Node3D
 
 signal move_finished
 
-const MOVE_DURATION := 0.4
+const MOVE_DURATION := 1.0
 const RIG_GENERAL := "res://assets/KayKit_Adventurers_2.0_FREE/Animations/gltf/Rig_Medium/Rig_Medium_General.glb"
 const RIG_MOVEMENT := "res://assets/KayKit_Adventurers_2.0_FREE/Animations/gltf/Rig_Medium/Rig_Medium_MovementBasic.glb"
 
@@ -122,16 +122,34 @@ func _setup_walk_animation() -> void:
 func _discover_walk_anim_name() -> String:
 	var scene: PackedScene = load(RIG_MOVEMENT) as PackedScene
 	if not scene:
+		push_warning("ExplorePlayer: no se pudo cargar Rig_Medium_MovementBasic.glb")
 		return ""
 	var inst: Node = scene.instantiate()
 	var source_ap: AnimationPlayer = _find_animation_player(inst)
 	var name_out := ""
 	if source_ap:
-		if source_ap.has_animation("Walk"):
-			name_out = "Walk"
-		elif source_ap.has_animation("Walking"):
-			name_out = "Walking"
+		# Nombres exactos típicos del pack KayKit
+		for candidate in ["Walk", "Walking", "walk"]:
+			if source_ap.has_animation(candidate):
+				name_out = candidate
+				break
+		# Fallback: buscar cualquier animación cuyo nombre contenga "walk"
+		if name_out.is_empty():
+			for lib_name in source_ap.get_animation_library_list():
+				var lib: AnimationLibrary = source_ap.get_animation_library(lib_name)
+				if lib:
+					for anim_name in lib.get_animation_list():
+						if "walk" in String(anim_name).to_lower():
+							if lib_name.is_empty():
+								name_out = String(anim_name)
+							else:
+								name_out = str(lib_name) + "/" + String(anim_name)
+							break
+					if not name_out.is_empty():
+						break
 	inst.queue_free()
+	if name_out.is_empty():
+		push_warning("ExplorePlayer: no se encontró animación de caminar en Rig_Medium_MovementBasic.glb. Idle y walk no coincidirán.")
 	return name_out
 
 func _find_animation_player(n: Node) -> AnimationPlayer:

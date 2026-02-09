@@ -1,0 +1,8 @@
+[gd_scene load_steps=2 format=3 uid="uid://building_stage_a_01"]
+
+[ext_resource type="Mesh" uid="uid://2i1p6ybksrb5" path="res://assets/KayKit_Medieval_Hexagon_Pack_1.0_FREE/Assets/obj/buildings/neutral/building_stage_A.obj" id="1_mesh"]
+
+[node name="BuildingStageA" type="Node3D"]
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="."]
+mesh = ExtResource("1_mesh")
