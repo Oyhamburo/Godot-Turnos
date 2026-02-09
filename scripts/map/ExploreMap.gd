@@ -52,6 +52,8 @@ func _build_blocked_hexes_from_buildings() -> void:
 		return
 	for child in buildings.get_children():
 		if child is Node3D:
+			if child.has_method("trigger_event"):
+				continue
 			var hex: Vector2i = HexGrid.world_to_hex(child.global_position.x, child.global_position.z)
 			var already: bool = false
 			for h in _blocked_hexes:
@@ -69,6 +71,21 @@ func _first_walkable_hex() -> Vector2i:
 
 func _on_player_move_finished() -> void:
 	_move_in_progress = false
+	var current_hex: Vector2i = explore_player.get_current_hex() if explore_player.has_method("get_current_hex") else Vector2i(0, 0)
+	var building: Node = _get_building_at_hex(current_hex)
+	if building and building.has_method("trigger_event"):
+		building.trigger_event()
+
+func _get_building_at_hex(hex: Vector2i) -> Node:
+	var buildings: Node = default_map.get_node_or_null("Buildings")
+	if buildings == null:
+		return null
+	for child in buildings.get_children():
+		if child is Node3D:
+			var h: Vector2i = HexGrid.world_to_hex(child.global_position.x, child.global_position.z)
+			if h.x == hex.x and h.y == hex.y:
+				return child
+	return null
 
 func _input(event: InputEvent) -> void:
 	if _move_in_progress:

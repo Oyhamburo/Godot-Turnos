@@ -1,0 +1,22 @@
+[gd_scene load_steps=5 format=3 uid="uid://building_battle_easy"]
+
+[ext_resource type="Script" path="res://scripts/buildings/EventBuilding.gd" id="1_script"]
+[ext_resource type="Mesh" uid="uid://djl88t2k84jhl" path="res://assets/KayKit_Medieval_Hexagon_Pack_1.0_FREE/Assets/obj/buildings/neutral/building_grain.obj" id="2_mesh"]
+[ext_resource type="Resource" uid="uid://c07u0hb871aw3" path="res://data/battles/battle_easy.tres" id="3_battle"]
+
+[sub_resource type="CylinderShape3D" id="CylinderShape3D_building"]
+radius = 1.0
+height = 1.5
+
+[node name="BuildingBattleEasy" type="Node3D"]
+script = ExtResource("1_script")
+battle_config = ExtResource("3_battle")
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="."]
+mesh = ExtResource("2_mesh")
+
+[node name="StaticBody3D" type="StaticBody3D" parent="."]
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="StaticBody3D"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.75, 0)
+shape = SubResource("CylinderShape3D_building")
