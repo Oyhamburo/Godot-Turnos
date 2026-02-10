@@ -1,6 +1,10 @@
 extends CharacterBody3D
 class_name Unit
 
+const _UnitStats = preload("res://scripts/unit/stats/unit_stats.gd")
+const _UnitStatsTemplate = preload("res://scripts/unit/stats/unit_stats_template.gd")
+const _FloatingHUDScene = preload("res://scenes/ui/FloatingHUD.tscn")
+
 signal hp_changed(unit: Unit)
 signal died(unit: Unit)
 
@@ -19,20 +23,11 @@ enum AnimState {
 @export var data: UnitData
 @export var display_name: String = "Unit"
 @export_enum("PLAYER", "ENEMY") var team: int = 0
-@export var max_hp: int = 30
-@export var hp: int = 30
-@export var speed: int = 10
-@export var attack: int = 8
 @export var stop_distance: float = 1.35
 @export var color: Color = Color.WHITE
 
-# Estadísticas de combate (daño físico/mágico, defensas, crítico, esquivar)
-@export var physical_damage: int = 8
-@export var magic_damage: int = 0
-@export var armor: int = 0
-@export var magic_resist: int = 0
-@export_range(0.0, 1.0) var crit_chance: float = 0.05
-@export_range(0.0, 1.0) var dodge_chance: float = 0.05
+## Stats runtime; se crea desde stats_template o desde data.
+var stats: UnitStats
 
 @onready var visual: Node3D = $Visual
 @onready var selection_ring: MeshInstance3D = $SelectionRing
@@ -88,6 +83,10 @@ func _get_mesh_surface_material(mi: MeshInstance3D) -> Material:
 func _ready() -> void:
 	if data:
 		_apply_data()
+	else:
+		_create_default_stats()
+	_ensure_stats()
+	add_floating_hud()
 	_start_position = global_position
 	_start_rotation = global_rotation
 
@@ -139,18 +138,74 @@ func _physics_process(delta: float) -> void:
 func _apply_data() -> void:
 	display_name = data.display_name
 	team = data.team
-	max_hp = data.max_hp
-	hp = data.max_hp
-	speed = data.speed
-	attack = data.attack
 	stop_distance = data.stop_distance
 	color = data.color
-	physical_damage = data.physical_damage if data.physical_damage > 0 else data.attack
-	magic_damage = data.magic_damage
-	armor = data.armor
-	magic_resist = data.magic_resist
-	crit_chance = data.crit_chance
-	dodge_chance = data.dodge_chance
+	var t: UnitStatsTemplate
+	if data.stats_template:
+		t = data.stats_template
+	else:
+		t = _build_template_from_data()
+	stats = _UnitStats.from_template(t)
+	if stats and stats.template:
+		display_name = stats.template.display_name
+		team = stats.template.team
+
+
+func _build_template_from_data() -> UnitStatsTemplate:
+	var t := _UnitStatsTemplate.new()
+	t.display_name = data.display_name
+	t.team = data.team
+	t.max_hp = data.max_hp
+	t.max_mana = 0
+	t.speed = data.speed
+	t.armor = data.armor
+	t.magic_resist = data.magic_resist
+	t.physical_damage = data.physical_damage if data.physical_damage > 0 else data.attack
+	t.magic_damage = data.magic_damage
+	t.evasion = data.dodge_chance
+	t.crit_chance = data.crit_chance
+	return t
+
+
+func _create_default_stats() -> void:
+	var t := _UnitStatsTemplate.new()
+	t.display_name = display_name
+	t.team = team
+	t.max_hp = 30
+	t.max_mana = 0
+	t.speed = 10
+	t.armor = 0
+	t.magic_resist = 0
+	t.physical_damage = 8
+	t.magic_damage = 0
+	t.evasion = 0.05
+	t.crit_chance = 0.05
+	stats = _UnitStats.from_template(t)
+
+
+func _ensure_stats() -> void:
+	if not stats:
+		_create_default_stats()
+
+
+func add_floating_hud() -> void:
+	if not stats:
+		print("[Unit] %s: add_floating_hud - stats es null!" % display_name)
+		return
+	var hud: Node3D = _FloatingHUDScene.instantiate()
+	add_child(hud)
+	hud.position = Vector3(0.0, 1.75, 0.0)
+	if hud is FloatingHUD:
+		hud.setup(stats)
+		stats.hp_changed.connect(_on_stats_hp_changed)
+		print("[Unit] %s: FloatingHUD creado - HP %d/%d - pos: %s" % [display_name, stats.hp, stats.max_hp, hud.position])
+	else:
+		print("[Unit] %s: hud instanciado pero no es FloatingHUD!" % display_name)
+
+
+func _on_stats_hp_changed(_current: int, _max_val: int) -> void:
+	print("[Unit] %s: hp_changed -> %d/%d" % [display_name, _current, _max_val])
+	emit_signal("hp_changed", self)
 
 func refresh_visual_color() -> void:
 	if not _use_unit_color:
@@ -295,16 +350,12 @@ func _on_animation_finished(_anim_name: StringName) -> void:
 func take_damage(amount: int) -> void:
 	take_damage_split(amount, 0)
 
-## Aplica daño físico y mágico reducido por armadura y resistencia mágica.
+## Aplica daño físico y mágico ya reducido por armadura y resistencia mágica.
 func take_damage_split(physical: int, magic: int) -> void:
-	if not alive:
+	if not alive or not stats:
 		return
-	var phys_taken: int = max(0, physical - armor)
-	var magic_taken: int = max(0, magic - magic_resist)
-	var total: int = phys_taken + magic_taken
-	hp = max(hp - total, 0)
-	emit_signal("hp_changed", self)
-	if hp <= 0:
+	stats.apply_damage_direct(physical, magic)
+	if stats.hp <= 0:
 		die()
 	else:
 		_play_hurt_fx()
@@ -313,6 +364,7 @@ func take_damage_split(physical: int, magic: int) -> void:
 func die() -> void:
 	if not alive:
 		return
+	print("[Unit] %s: murio" % display_name)
 	alive = false
 	set_selected(false)
 	collider.disabled = true
@@ -402,18 +454,20 @@ func attack_target(target: Unit, ability_index: int = 0) -> void:
 	set_animation_state(AnimState.IDLE)
 
 func _resolve_attack_damage(target: Unit, ability_index: int) -> void:
+	if not stats or not target.stats:
+		return
 	var ab: Dictionary = Unit.get_ability(self, ability_index)
-	if randf() < target.dodge_chance:
+	if randf() < target.stats.evasion:
 		target.show_floating_text("Esquive", Color.YELLOW)
 		return
 	if randf() > ab.get("hit_chance", 1.0):
 		target.show_floating_text("Falló", Color(0.55, 0.55, 0.55))
 		return
-	var crit_mult: float = 2.0 if randf() < crit_chance else 1.0
-	var phys: int = int((physical_damage + ab.get("physical", 0)) * crit_mult)
-	var mag: int = int((magic_damage + ab.get("magic", 0)) * crit_mult)
-	var phys_taken: int = max(0, phys - target.armor)
-	var magic_taken: int = max(0, mag - target.magic_resist)
+	var crit_mult: float = 2.0 if randf() < stats.crit_chance else 1.0
+	var phys: int = int((stats.physical_damage + ab.get("physical", 0)) * crit_mult)
+	var mag: int = int((stats.magic_damage + ab.get("magic", 0)) * crit_mult)
+	var phys_taken: int = max(0, phys - target.stats.armor)
+	var magic_taken: int = max(0, mag - target.stats.magic_resist)
 	var phys_blocked: int = phys - phys_taken
 	var magic_blocked: int = mag - magic_taken
 
@@ -444,7 +498,9 @@ func _resolve_attack_damage(target: Unit, ability_index: int) -> void:
 
 ## Muestra un popup flotante sobre la unidad (esquive, daño, bloqueos, etc.).
 ## delay_sec: segundos antes de mostrar este popup (evita que se superpongan).
+## DESACTIVADO temporalmente para testear FloatingHUD (barra de vida 3D).
 func show_floating_text(text: String, text_color: Color, vertical_offset: float = 0.0, delay_sec: float = 0.0) -> void:
+	return  # DESACTIVADO: texto flotante deshabilitado mientras se testea FloatingHUD
 	if delay_sec > 0.0:
 		var timer: SceneTreeTimer = get_tree().create_timer(delay_sec)
 		timer.timeout.connect(_spawn_one_floating_text.bind(text, text_color, vertical_offset))
