@@ -1,0 +1,8 @@
+[gd_scene load_steps=2 format=3 uid="uid://battle_board"]
+
+[ext_resource type="Script" path="res://scripts/battle/board/battle_board.gd" id="1_script"]
+
+[node name="BattleBoard" type="Node3D"]
+script = ExtResource("1_script")
+
+[node name="Tiles" type="Node3D" parent="."]

@@ -1,0 +1,182 @@
+extends Node3D
+class_name BattleBoard
+##
+## Genera y gestiona el tablero de batalla: grilla de tiles, bloqueos, ocupación y spawn de unidades.
+##
+
+const TILE_SCENE := preload("res://scenes/battle/Tile.tscn")
+const FLOOR_SCENES_PATHS: Array[String] = [
+	"res://scenes/floors/FloorTileLarge.tscn",
+	"res://scenes/floors/FloorTileGrate.tscn",
+	"res://scenes/floors/FloorTileLargeRocks.tscn",
+]
+const FLOOR_BLOCKED_PATH: String = "res://assets/KayKit_DungeonRemastered_1.1_FREE/Assets/gltf/floor_tile_big_spikes.gltf"
+const KAYKIT_FLOOR_DIR: String = "res://assets/KayKit_DungeonRemastered_1.1_FREE/Assets/gltf"
+
+signal tile_selected(tile: Tile)
+
+var tiles: Dictionary = {}  # Vector2i -> Tile
+var _floor_walkable: Array[PackedScene] = []
+var _floor_blocked: PackedScene = null
+var _selected_tile: Tile = null
+var _config: BattleConfig
+var _tiles_node: Node3D
+
+@onready var units_container: Node3D = get_parent().get_node_or_null("Units")
+
+
+func setup(config: BattleConfig) -> void:
+	_config = config
+	_load_floor_assets()
+	_tiles_node = get_node_or_null("Tiles")
+	if not _tiles_node:
+		_tiles_node = Node3D.new()
+		_tiles_node.name = "Tiles"
+		add_child(_tiles_node)
+
+	_clear_tiles()
+	_generate_grid()
+
+
+func _load_floor_assets() -> void:
+	_floor_walkable.clear()
+	_floor_blocked = null
+
+	# Prioridad 1: escenas en scenes/floors/
+	for path in FLOOR_SCENES_PATHS:
+		if ResourceLoader.exists(path):
+			var scene: PackedScene = load(path) as PackedScene
+			if scene:
+				_floor_walkable.append(scene)
+
+	# Prioridad 2: si no hay .tscn, escanear KayKit gltf
+	if _floor_walkable.is_empty():
+		var dir := DirAccess.open(KAYKIT_FLOOR_DIR)
+		if dir:
+			dir.list_dir_begin()
+			var file := dir.get_next()
+			while file != "":
+				if file.ends_with(".gltf") and file.begins_with("floor"):
+					if "spike" in file.to_lower():
+						if not _floor_blocked:
+							var full := KAYKIT_FLOOR_DIR.path_join(file)
+							_floor_blocked = load(full) as PackedScene
+					else:
+						var full := KAYKIT_FLOOR_DIR.path_join(file)
+						var scene: PackedScene = load(full) as PackedScene
+						if scene and _floor_walkable.size() < 3:
+							_floor_walkable.append(scene)
+				file = dir.get_next()
+			dir.list_dir_end()
+
+	# Fallback bloqueado: cargar spikes si existe
+	if not _floor_blocked and ResourceLoader.exists(FLOOR_BLOCKED_PATH):
+		_floor_blocked = load(FLOOR_BLOCKED_PATH) as PackedScene
+
+
+func _clear_tiles() -> void:
+	for t in tiles.values():
+		if is_instance_valid(t):
+			t.queue_free()
+	tiles.clear()
+	_selected_tile = null
+	if _tiles_node:
+		for c in _tiles_node.get_children():
+			c.queue_free()
+
+
+func _generate_grid() -> void:
+	if not _config:
+		push_error("BattleBoard: BattleConfig no asignado.")
+		return
+
+	var blocked: Array[Vector2i] = _config.get_blocked_coords()
+	var ts: float = _config.tile_size
+	var walkable_scene: PackedScene = _floor_walkable[0] if _floor_walkable.size() > 0 else null
+	var blocked_scene: PackedScene = _floor_blocked if _floor_blocked else walkable_scene
+
+	for y in range(_config.height):
+		for x in range(_config.width):
+			var coord := Vector2i(x, y)
+			var is_blocked: bool = coord in blocked
+			var pos := _coords_to_world(coord)
+			var tile: Tile = TILE_SCENE.instantiate() as Tile
+			_tiles_node.add_child(tile)
+			tile.coords = coord
+			tile.world_position = pos
+			tile.position = pos
+			tile.setup_floor(blocked_scene if is_blocked else walkable_scene, is_blocked, ts)
+			tile.tile_clicked.connect(_on_tile_clicked)
+			tiles[coord] = tile
+
+
+func _coords_to_world(coord: Vector2i) -> Vector3:
+	var ts: float = _config.tile_size
+	# Centro del tablero en origen; tiles centrados en su celda
+	var half_w: float = (_config.width - 1) * ts * 0.5
+	var half_h: float = (_config.height - 1) * ts * 0.5
+	var x: float = coord.x * ts - half_w
+	var z: float = coord.y * ts - half_h
+	return Vector3(x, 0.0, z)
+
+
+func _on_tile_clicked(tile: Tile) -> void:
+	if _selected_tile and _selected_tile != tile:
+		_selected_tile.set_highlighted(false)
+	_selected_tile = tile
+	tile.set_highlighted(true)
+	tile_selected.emit(tile)
+
+
+func get_tile_at(coords: Vector2i) -> Tile:
+	return tiles.get(coords, null)
+
+
+func get_tile_at_world(pos: Vector3) -> Tile:
+	if not _config:
+		return null
+	var ts: float = _config.tile_size
+	var half_w: float = (_config.width - 1) * ts * 0.5
+	var half_h: float = (_config.height - 1) * ts * 0.5
+	var x: int = int(round((pos.x + half_w) / ts))
+	var z: int = int(round((pos.z + half_h) / ts))
+	return get_tile_at(Vector2i(x, z))
+
+
+## Instancia una unidad en el tile indicado. Devuelve la unidad o null.
+func spawn_unit(unit_scene: PackedScene, unit_data: UnitData, coords: Vector2i, _team: String) -> Node:
+	var tile: Tile = get_tile_at(coords)
+	if not tile or not tile.walkable or tile.occupied_by:
+		push_warning("BattleBoard: no se puede spawnear en %s (bloqueado u ocupado)" % coords)
+		return null
+
+	var unit: Node = unit_scene.instantiate()
+	if "data" in unit and unit_data:
+		unit.set("data", unit_data)
+	var container: Node3D = units_container if units_container else self
+	container.add_child(unit)
+
+	unit.global_position = tile.world_position + Vector3(0, 0.1, 0)
+
+	tile.occupied_by = unit
+	return unit
+
+
+## Devuelve el centro 3D del tablero (para la cámara overview).
+func get_board_center() -> Vector3:
+	if not _config:
+		return Vector3.ZERO
+	return Vector3(0, 0, 0)
+
+
+## Devuelve el tamaño aproximado del tablero en X y Z para calcular distancia de cámara.
+func get_board_size() -> Vector2:
+	if not _config:
+		return Vector2(10, 10)
+	return Vector2(_config.width * _config.tile_size, _config.height * _config.tile_size)
+
+
+func clear_selection() -> void:
+	if _selected_tile:
+		_selected_tile.set_highlighted(false)
+		_selected_tile = null

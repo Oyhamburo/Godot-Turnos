@@ -1,0 +1,33 @@
+[gd_scene load_steps=7 format=3 uid="uid://bmjsiayndprd1"]
+
+[ext_resource type="Script" uid="uid://b8ybl48sjagqx" path="res://scripts/battle/battle_flow.gd" id="1_script"]
+[ext_resource type="Environment" uid="uid://b7lq3cv6rbp6a" path="res://default_env.tres" id="2_env"]
+[ext_resource type="PackedScene" path="res://scenes/battle/BattleBoard.tscn" id="3_board"]
+[ext_resource type="PackedScene" path="res://scenes/battle/BattleCameraRig.tscn" id="4_camera"]
+[ext_resource type="Resource" uid="uid://b8un6r5sa7myh" path="res://data/battles/battle_example.tres" id="5_config"]
+[ext_resource type="Script" path="res://scripts/ui/battle_hud.gd" id="6_hud_script"]
+
+[node name="BattleScene" type="Node3D"]
+script = ExtResource("1_script")
+battle_config = ExtResource("5_config")
+
+[node name="DirectionalLight3D" type="DirectionalLight3D" parent="."]
+transform = Transform3D(0.796084, -0.474059, 0.37619, 0, 0.62161, 0.783327, -0.605186, -0.623594, 0.494853, 0, 5, -6)
+light_energy = 1.2
+shadow_enabled = true
+
+[node name="FaceLight" type="DirectionalLight3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, -1, 0, 0, 0)
+light_energy = 0.45
+
+[node name="WorldEnvironment" type="WorldEnvironment" parent="."]
+environment = ExtResource("2_env")
+
+[node name="BattleBoard" parent="." instance=ExtResource("3_board")]
+
+[node name="BattleCameraRig" parent="." instance=ExtResource("4_camera")]
+
+[node name="BattleHUD" type="CanvasLayer" parent="."]
+script = ExtResource("6_hud_script")
+
+[node name="Units" type="Node3D" parent="."]

@@ -1,0 +1,33 @@
+[gd_scene load_steps=5 format=3 uid="uid://battle_tile"]
+
+[ext_resource type="Script" path="res://scripts/battle/board/tile.gd" id="1_script"]
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_area"]
+size = Vector3(2.2, 0.2, 2.2)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_highlight"]
+albedo_color = Color(0.2, 0.8, 0.4, 0.4)
+transparency = 1
+cull_mode = 2
+
+[sub_resource type="PlaneMesh" id="PlaneMesh_highlight"]
+size = Vector2(1.9, 1.9)
+
+[node name="Tile" type="Node3D"]
+script = ExtResource("1_script")
+
+[node name="FloorContainer" type="Node3D" parent="."]
+
+[node name="Area3D" type="Area3D" parent="."]
+collision_layer = 4
+collision_mask = 0
+input_ray_pickable = true
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Area3D"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.05, 0)
+shape = SubResource("BoxShape3D_area")
+
+[node name="HighlightMesh" type="MeshInstance3D" parent="."]
+visible = false
+material_override = SubResource("StandardMaterial3D_highlight")
+mesh = SubResource("PlaneMesh_highlight")
