@@ -5,7 +5,7 @@ class_name BattleHUD
 ## Crea toda la UI por código para evitar problemas de escena/nodos.
 ##
 
-signal action_selected(action: String)       # "attack", "item", "exit"
+signal action_selected(action: String)       # "attack", "move", "item", "end_turn"
 signal attack_selected(index: int)           # 0-3
 signal item_selected(index: int)             # 0-2
 signal back_from_attack()
@@ -18,8 +18,13 @@ var turn_label: Label
 
 var action_panel: PanelContainer
 var attack_btn: Button
+var move_btn: Button
 var item_btn: Button
-var exit_btn: Button
+var end_turn_btn: Button
+
+var ap_sp_panel: PanelContainer
+var ap_label: Label
+var sp_label: Label
 
 var attack_panel: PanelContainer
 var attack_btn_1: Button
@@ -41,8 +46,9 @@ func _ready() -> void:
 
 	# Conectar botones del panel de acciones
 	attack_btn.pressed.connect(func() -> void: _on_action("attack"))
+	move_btn.pressed.connect(func() -> void: _on_action("move"))
 	item_btn.pressed.connect(func() -> void: _on_action("item"))
-	exit_btn.pressed.connect(func() -> void: _on_action("exit"))
+	end_turn_btn.pressed.connect(func() -> void: _on_action("end_turn"))
 
 	# Conectar botones de ataque
 	attack_btn_1.pressed.connect(func() -> void: _on_attack(0))
@@ -103,17 +109,56 @@ func _build_ui() -> void:
 	turn_label.add_theme_constant_override("outline_size", 4)
 	root.add_child(turn_label)
 
+	# ── AP/SP Panel (derecha, arriba del action panel) ──
+	ap_sp_panel = PanelContainer.new()
+	ap_sp_panel.name = "APSPPanel"
+	ap_sp_panel.set_anchors_preset(Control.PRESET_CENTER_RIGHT)
+	ap_sp_panel.anchor_left = 1.0
+	ap_sp_panel.anchor_top = 0.5
+	ap_sp_panel.anchor_right = 1.0
+	ap_sp_panel.anchor_bottom = 0.5
+	ap_sp_panel.offset_left = -204 - 16
+	ap_sp_panel.offset_top = -230 / 2.0 - 52
+	ap_sp_panel.offset_right = -16
+	ap_sp_panel.offset_bottom = -230 / 2.0 - 4
+	ap_sp_panel.grow_horizontal = Control.GROW_DIRECTION_BEGIN
+	ap_sp_panel.add_theme_stylebox_override("panel", _make_panel_style(Color(0.08, 0.1, 0.18, 0.9), 8))
+	ap_sp_panel.visible = false
+	root.add_child(ap_sp_panel)
+
+	var ap_sp_hbox := HBoxContainer.new()
+	ap_sp_hbox.add_theme_constant_override("separation", 16)
+	ap_sp_panel.add_child(ap_sp_hbox)
+
+	ap_label = Label.new()
+	ap_label.text = "AP: 1/1"
+	ap_label.add_theme_font_size_override("font_size", 16)
+	ap_label.add_theme_color_override("font_color", Color(1.0, 0.85, 0.3))
+	ap_label.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.8))
+	ap_label.add_theme_constant_override("outline_size", 3)
+	ap_sp_hbox.add_child(ap_label)
+
+	sp_label = Label.new()
+	sp_label.text = "SP: 2/2"
+	sp_label.add_theme_font_size_override("font_size", 16)
+	sp_label.add_theme_color_override("font_color", Color(0.4, 0.85, 1.0))
+	sp_label.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.8))
+	sp_label.add_theme_constant_override("outline_size", 3)
+	ap_sp_hbox.add_child(sp_label)
+
 	# ── Action Panel (derecha-centro) ──
-	action_panel = _make_menu_panel(root, "ActionPanel", Vector2(204, 180))
+	action_panel = _make_menu_panel(root, "ActionPanel", Vector2(204, 230))
 	var action_vbox := VBoxContainer.new()
 	action_vbox.add_theme_constant_override("separation", 8)
 	action_panel.add_child(action_vbox)
 	attack_btn = _make_button("Atacar")
+	move_btn = _make_button("Mover")
 	item_btn = _make_button("Item")
-	exit_btn = _make_button("Salir")
+	end_turn_btn = _make_button("Fin Turno")
 	action_vbox.add_child(attack_btn)
+	action_vbox.add_child(move_btn)
 	action_vbox.add_child(item_btn)
-	action_vbox.add_child(exit_btn)
+	action_vbox.add_child(end_turn_btn)
 
 	# ── Attack Panel (derecha-centro) ──
 	attack_panel = _make_menu_panel(root, "AttackPanel", Vector2(264, 280))
@@ -236,11 +281,12 @@ func show_turn_label(unit_name: String) -> void:
 func show_action_menu() -> void:
 	hide_all_menus()
 	action_panel.visible = true
+	ap_sp_panel.visible = true
 	attack_btn.grab_focus()
 	print("[BattleHUD] Mostrando menú de acciones")
 
 
-func show_attack_menu(unit: Unit) -> void:
+func show_attack_menu(unit: Unit, melee_available: bool = false) -> void:
 	hide_all_menus()
 	attack_panel.visible = true
 
@@ -250,12 +296,25 @@ func show_attack_menu(unit: Unit) -> void:
 		var phys: int = ab.get("physical", 0)
 		var mag: int = ab.get("magic", 0)
 		var hit: float = ab.get("hit_chance", 1.0)
+		var atk_range: int = ab.get("range", 99)
+		var is_melee: bool = atk_range <= 1
 		var type_str: String = "Fís" if phys > 0 else "Mág"
 		var dmg: int = phys if phys > 0 else mag
-		buttons[i].text = "Ataque %d (%s %d, %d%%)" % [i + 1, type_str, dmg, int(hit * 100)]
+		var range_icon: String = "⚔" if is_melee else "🏹"
+
+		buttons[i].text = "%s %s %d, %d%%" % [range_icon, type_str, dmg, int(hit * 100)]
+
+		# Deshabilitar ataques melee si no hay enemigo adyacente
+		if is_melee and not melee_available:
+			buttons[i].disabled = true
+			buttons[i].modulate = Color(0.5, 0.5, 0.5, 0.7)
+			buttons[i].text += " (fuera de rango)"
+		else:
+			buttons[i].disabled = false
+			buttons[i].modulate = Color.WHITE
 
 	attack_btn_1.grab_focus()
-	print("[BattleHUD] Mostrando menú de ataques para %s" % unit.display_name)
+	print("[BattleHUD] Mostrando menú de ataques para %s (melee: %s)" % [unit.display_name, melee_available])
 
 
 func show_item_menu() -> void:
@@ -269,6 +328,7 @@ func hide_all_menus() -> void:
 	action_panel.visible = false
 	attack_panel.visible = false
 	item_panel.visible = false
+	ap_sp_panel.visible = false
 
 
 func hide_hud() -> void:
@@ -276,6 +336,28 @@ func hide_hud() -> void:
 	turn_label.text = ""
 	for child in timeline_hbox.get_children():
 		child.queue_free()
+
+
+## Actualiza los labels de AP y SP.
+func update_ap_sp(ap: int, max_ap: int, sp: int, max_sp: int) -> void:
+	if ap_label:
+		ap_label.text = "AP: %d/%d" % [ap, max_ap]
+	if sp_label:
+		sp_label.text = "SP: %d/%d" % [sp, max_sp]
+
+
+## Habilita/deshabilita el botón Atacar (AP > 0).
+func set_attack_enabled(enabled: bool) -> void:
+	if attack_btn:
+		attack_btn.disabled = not enabled
+		attack_btn.modulate = Color.WHITE if enabled else Color(0.5, 0.5, 0.5, 0.7)
+
+
+## Habilita/deshabilita el botón Mover (SP > 0).
+func set_move_enabled(enabled: bool) -> void:
+	if move_btn:
+		move_btn.disabled = not enabled
+		move_btn.modulate = Color.WHITE if enabled else Color(0.5, 0.5, 0.5, 0.7)
 
 
 # ── SIGNAL HANDLERS ────────────────────────────────────────

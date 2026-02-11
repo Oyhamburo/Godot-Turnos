@@ -15,6 +15,7 @@ enum State {
 	CHOOSING_ACTION,
 	CHOOSING_ATTACK,
 	CHOOSING_ITEM,
+	CHOOSING_MOVE,
 	ENEMY_TURN,
 	ANIMATING,
 	BATTLE_END
@@ -36,6 +37,10 @@ var _turn_order: Array = []          # Array de Unit, ordenado por speed
 var _current_turn_index: int = 0
 var _current_unit: Unit = null
 var _selected_ability_index: int = 0
+
+# Sistema de movimiento
+var _valid_move_tiles: Array[Vector2i] = []
+var _hovered_tile: Tile = null
 
 
 func _ready() -> void:
@@ -316,7 +321,10 @@ func _start_next_turn() -> void:
 
 func _start_player_turn() -> void:
 	_state = State.CHOOSING_ACTION
-	print("[BattleFlow] Estado: CHOOSING_ACTION - mostrando menú de acciones")
+	_current_unit.stats.reset_turn_actions()
+	print("[BattleFlow] Estado: CHOOSING_ACTION - mostrando menú de acciones (AP:%d SP:%d)" % [
+		_current_unit.stats.current_ap, _current_unit.stats.current_sp
+	])
 
 	# Cámara enfoca al personaje con ángulo lateral para menú
 	camera_rig.tween_to_action_view(_current_unit.global_position)
@@ -324,6 +332,7 @@ func _start_player_turn() -> void:
 	# Mostrar menú de acciones
 	if hud:
 		hud.show_action_menu()
+		_update_hud_actions()
 
 
 func _start_enemy_turn() -> void:
@@ -350,11 +359,62 @@ func _start_enemy_turn() -> void:
 		_check_battle_end()
 		return
 
-	var target: Unit = alive_players[randi() % alive_players.size()]
-	var ability_idx: int = randi() % 4
+	# Seleccionar habilidad respetando rango
+	var attacker_coord: Vector2i = board.get_coords_for_unit(_current_unit)
+	var has_adjacent: bool = _has_adjacent_player(_current_unit)
 
-	print("[BattleFlow] Enemigo %s ataca a %s con ataque %d" % [
-		_current_unit.display_name, target.display_name, ability_idx
+	# Construir lista de habilidades válidas (que tengan target en rango)
+	var valid_abilities: Array[int] = []
+	for i in range(4):
+		var ab: Dictionary = Unit.get_ability(_current_unit, i)
+		var atk_range: int = ab.get("range", 99)
+		var target: Unit = _find_player_target_in_range(attacker_coord, atk_range)
+		if target:
+			valid_abilities.append(i)
+
+	if valid_abilities.is_empty():
+		# No hay ataques válidos en rango, pasar turno
+		print("[BattleFlow] Enemigo %s no tiene ataques en rango, pasa turno" % _current_unit.display_name)
+		_advance_turn()
+		return
+
+	# Preferir melee si hay adyacente (más daño), sino usar a distancia
+	var ability_idx: int
+	if has_adjacent:
+		# Intentar usar melee (índices 2,3 tienen range 1 = más daño)
+		var melee_abilities: Array[int] = []
+		for i in valid_abilities:
+			var ab: Dictionary = Unit.get_ability(_current_unit, i)
+			if ab.get("range", 99) <= 1:
+				melee_abilities.append(i)
+		if not melee_abilities.is_empty():
+			ability_idx = melee_abilities[randi() % melee_abilities.size()]
+		else:
+			ability_idx = valid_abilities[randi() % valid_abilities.size()]
+	else:
+		# Solo usar ataques a distancia
+		var ranged_abilities: Array[int] = []
+		for i in valid_abilities:
+			var ab: Dictionary = Unit.get_ability(_current_unit, i)
+			if ab.get("range", 99) > 1:
+				ranged_abilities.append(i)
+		if not ranged_abilities.is_empty():
+			ability_idx = ranged_abilities[randi() % ranged_abilities.size()]
+		else:
+			ability_idx = valid_abilities[randi() % valid_abilities.size()]
+
+	# Buscar target para la habilidad elegida
+	var chosen_ab: Dictionary = Unit.get_ability(_current_unit, ability_idx)
+	var chosen_range: int = chosen_ab.get("range", 99)
+	var target: Unit = _find_player_target_in_range(attacker_coord, chosen_range)
+
+	if not target:
+		# Fallback: no debería pasar, pero por seguridad
+		target = alive_players[randi() % alive_players.size()]
+
+	var range_label: String = "melee" if chosen_range <= 1 else "distancia"
+	print("[BattleFlow] Enemigo %s ataca a %s con ataque %d (%s, rango %d)" % [
+		_current_unit.display_name, target.display_name, ability_idx, range_label, chosen_range
 	])
 
 	_state = State.ANIMATING
@@ -386,11 +446,21 @@ func _on_hud_action_selected(action: String) -> void:
 
 	match action:
 		"attack":
+			if _current_unit.stats.current_ap <= 0:
+				print("[BattleFlow] Sin AP para atacar")
+				return
+			var melee_ok: bool = _has_adjacent_enemy()
 			_state = State.CHOOSING_ATTACK
-			print("[BattleFlow] Estado: CHOOSING_ATTACK - mostrando ataques")
+			print("[BattleFlow] Estado: CHOOSING_ATTACK - mostrando ataques (melee: %s)" % melee_ok)
 			camera_rig.tween_to_attack_view(_current_unit.global_position)
 			if hud:
-				hud.show_attack_menu(_current_unit)
+				hud.show_attack_menu(_current_unit, melee_ok)
+
+		"move":
+			if _current_unit.stats.current_sp <= 0:
+				print("[BattleFlow] Sin SP para moverse")
+				return
+			_start_choosing_move()
 
 		"item":
 			_state = State.CHOOSING_ITEM
@@ -399,9 +469,9 @@ func _on_hud_action_selected(action: String) -> void:
 			if hud:
 				hud.show_item_menu()
 
-		"exit":
-			print("[BattleFlow] Saliendo al menú principal...")
-			get_tree().change_scene_to_file("res://scenes/MainMenu.tscn")
+		"end_turn":
+			print("[BattleFlow] Fin de turno manual")
+			_advance_turn()
 
 
 func _on_hud_attack_selected(index: int) -> void:
@@ -410,39 +480,39 @@ func _on_hud_attack_selected(index: int) -> void:
 
 	_selected_ability_index = index
 	var ab: Dictionary = Unit.get_ability(_current_unit, index)
-	print("[BattleFlow] ► Ataque %d seleccionado por %s: phys=%d mag=%d hit=%.0f%%" % [
+	var atk_range: int = ab.get("range", 99)
+	print("[BattleFlow] ► Ataque %d seleccionado por %s: phys=%d mag=%d hit=%.0f%% rango=%d" % [
 		index,
 		_current_unit.display_name,
 		ab.get("physical", 0),
 		ab.get("magic", 0),
-		ab.get("hit_chance", 1.0) * 100.0
+		ab.get("hit_chance", 1.0) * 100.0,
+		atk_range
 	])
 
-	# Placeholder: auto-seleccionar primer enemigo vivo como target
-	var alive_enemies: Array[Unit] = []
-	for u in _turn_order:
-		if u is Unit and u.alive and u.team == Unit.Team.ENEMY:
-			alive_enemies.append(u)
+	# Buscar target válido dentro del rango del ataque
+	var attacker_coord: Vector2i = board.get_coords_for_unit(_current_unit)
+	var target: Unit = _find_target_in_range(attacker_coord, atk_range)
 
-	if alive_enemies.is_empty():
-		print("[BattleFlow] No hay enemigos vivos!")
-		_check_battle_end()
+	if not target:
+		print("[BattleFlow] No hay enemigo en rango %d" % atk_range)
 		return
 
-	var target: Unit = alive_enemies[0]
-	print("[BattleFlow] Target auto-seleccionado: %s" % target.display_name)
+	print("[BattleFlow] Target seleccionado: %s" % target.display_name)
 
-	# Ejecutar ataque
+	# Ejecutar ataque (gasta 1 AP)
 	_state = State.ANIMATING
 	if hud:
 		hud.hide_all_menus()
+
+	_current_unit.stats.spend_ap(1)
 
 	await _current_unit.attack_target(target, _selected_ability_index)
 
 	# Pequeña pausa después del ataque
 	await get_tree().create_timer(0.3).timeout
 
-	_advance_turn()
+	_check_turn_end_or_continue()
 
 
 func _on_hud_item_selected(index: int) -> void:
@@ -475,6 +545,185 @@ func _on_hud_back_from_item() -> void:
 	camera_rig.tween_to_action_view(_current_unit.global_position)
 	if hud:
 		hud.show_action_menu()
+
+
+# ── MOVEMENT ──────────────────────────────────────────────
+
+func _start_choosing_move() -> void:
+	var origin: Vector2i = board.get_coords_for_unit(_current_unit)
+	if origin == Vector2i(-1, -1):
+		print("[BattleFlow] No se encontró tile de la unidad actual")
+		return
+
+	var max_steps: int = _current_unit.stats.current_sp
+	_valid_move_tiles = board.get_movement_range(origin, max_steps)
+
+	if _valid_move_tiles.is_empty():
+		print("[BattleFlow] No hay tiles disponibles para moverse")
+		return
+
+	_state = State.CHOOSING_MOVE
+	print("[BattleFlow] Estado: CHOOSING_MOVE - %d tiles disponibles (rango: %d)" % [_valid_move_tiles.size(), max_steps])
+
+	board.highlight_tiles(_valid_move_tiles)
+	camera_rig.tween_to_overview(board.get_board_center(), board.get_board_size(), 0.7)
+
+	if hud:
+		hud.hide_all_menus()
+
+
+func _cancel_move() -> void:
+	print("[BattleFlow] Movimiento cancelado")
+	board.clear_all_highlights()
+	_valid_move_tiles.clear()
+	_hovered_tile = null
+	_state = State.CHOOSING_ACTION
+	camera_rig.tween_to_action_view(_current_unit.global_position)
+	if hud:
+		hud.show_action_menu()
+
+
+func _execute_move(tile: Tile) -> void:
+	_state = State.ANIMATING
+	board.clear_all_highlights()
+
+	# Actualizar ocupación de tiles
+	var old_coord: Vector2i = board.get_coords_for_unit(_current_unit)
+	var old_tile: Tile = board.get_tile_at(old_coord)
+	if old_tile:
+		old_tile.occupied_by = null
+	tile.occupied_by = _current_unit
+
+	# Gastar 1 SP por movimiento
+	_current_unit.stats.spend_sp(1)
+
+	print("[BattleFlow] Moviendo %s de %s a %s (SP restante: %d)" % [
+		_current_unit.display_name, old_coord, tile.coords, _current_unit.stats.current_sp
+	])
+
+	await _current_unit.move_to_tile(tile.world_position)
+	_current_unit.reset_start_pose()
+
+	_valid_move_tiles.clear()
+	_hovered_tile = null
+
+	# Verificar si el turno continúa o termina
+	_check_turn_end_or_continue()
+
+
+## Raycast de tile desde posición del mouse. Devuelve el Tile o null.
+func _raycast_tile_at_mouse(mouse_pos: Vector2) -> Tile:
+	var camera: Camera3D = get_viewport().get_camera_3d()
+	if not camera:
+		return null
+
+	var from: Vector3 = camera.project_ray_origin(mouse_pos)
+	var to: Vector3 = from + camera.project_ray_normal(mouse_pos) * 1000.0
+
+	var space_state: PhysicsDirectSpaceState3D = get_world_3d().direct_space_state
+	var query := PhysicsRayQueryParameters3D.create(from, to)
+	query.collision_mask = 4
+	query.collide_with_areas = true  # Los tiles usan Area3D, no PhysicsBody3D
+	query.collide_with_bodies = false
+
+	var result: Dictionary = space_state.intersect_ray(query)
+	if result.is_empty():
+		return null
+
+	var collider: Object = result.collider
+	if collider is Area3D:
+		var tile_node: Node = collider.get_parent()
+		if tile_node is Tile:
+			return tile_node as Tile
+	return null
+
+
+# ── AP/SP HELPERS ──────────────────────────────────────────
+
+## Actualiza el HUD con el estado actual de AP/SP y habilita/deshabilita botones.
+func _update_hud_actions() -> void:
+	if not hud or not _current_unit or not _current_unit.stats:
+		return
+	var s: UnitStats = _current_unit.stats
+	hud.update_ap_sp(s.current_ap, s.max_primary_actions, s.current_sp, s.max_secondary_actions)
+	hud.set_attack_enabled(s.current_ap > 0)
+	hud.set_move_enabled(s.current_sp > 0)
+
+
+## Después de una acción, verifica si el turno continúa o termina.
+func _check_turn_end_or_continue() -> void:
+	if _check_battle_end():
+		return
+	if _current_unit.stats.has_actions_remaining():
+		# Turno continúa: volver a CHOOSING_ACTION
+		_state = State.CHOOSING_ACTION
+		camera_rig.tween_to_action_view(_current_unit.global_position)
+		_update_hud_actions()
+		if hud:
+			hud.show_action_menu()
+		print("[BattleFlow] Turno continúa (AP:%d SP:%d)" % [
+			_current_unit.stats.current_ap, _current_unit.stats.current_sp
+		])
+	else:
+		# Sin acciones restantes: auto-avanzar turno
+		print("[BattleFlow] Sin acciones restantes, avanzando turno")
+		_advance_turn()
+
+
+# ── RANGE HELPERS ─────────────────────────────────────────
+
+## Comprueba si hay algún enemigo adyacente (Manhattan distance ≤ 1) al _current_unit.
+func _has_adjacent_enemy() -> bool:
+	var attacker_coord: Vector2i = board.get_coords_for_unit(_current_unit)
+	if attacker_coord == Vector2i(-1, -1):
+		return false
+	for u in _turn_order:
+		if u is Unit and u.alive and u.team == Unit.Team.ENEMY:
+			var enemy_coord: Vector2i = board.get_coords_for_unit(u)
+			if board.get_tile_distance(attacker_coord, enemy_coord) <= 1:
+				return true
+	return false
+
+
+## Busca el enemigo vivo más cercano dentro del rango dado (desde la perspectiva del player).
+func _find_target_in_range(attacker_coord: Vector2i, atk_range: int) -> Unit:
+	var best_target: Unit = null
+	var best_distance: int = 999
+	for u in _turn_order:
+		if u is Unit and u.alive and u.team == Unit.Team.ENEMY:
+			var enemy_coord: Vector2i = board.get_coords_for_unit(u)
+			var dist: int = board.get_tile_distance(attacker_coord, enemy_coord)
+			if dist <= atk_range and dist < best_distance:
+				best_distance = dist
+				best_target = u
+	return best_target
+
+
+## Comprueba si hay algún jugador adyacente (Manhattan distance ≤ 1) al enemigo dado.
+func _has_adjacent_player(enemy_unit: Unit) -> bool:
+	var enemy_coord: Vector2i = board.get_coords_for_unit(enemy_unit)
+	if enemy_coord == Vector2i(-1, -1):
+		return false
+	for u in _turn_order:
+		if u is Unit and u.alive and u.team == Unit.Team.PLAYER:
+			var player_coord: Vector2i = board.get_coords_for_unit(u)
+			if board.get_tile_distance(enemy_coord, player_coord) <= 1:
+				return true
+	return false
+
+
+## Busca el jugador vivo más cercano dentro del rango dado (desde la perspectiva del enemigo).
+func _find_player_target_in_range(attacker_coord: Vector2i, atk_range: int) -> Unit:
+	var best_target: Unit = null
+	var best_distance: int = 999
+	for u in _turn_order:
+		if u is Unit and u.alive and u.team == Unit.Team.PLAYER:
+			var player_coord: Vector2i = board.get_coords_for_unit(u)
+			var dist: int = board.get_tile_distance(attacker_coord, player_coord)
+			if dist <= atk_range and dist < best_distance:
+				best_distance = dist
+				best_target = u
+	return best_target
 
 
 # ── ADVANCE / END ──────────────────────────────────────────
@@ -555,6 +804,43 @@ func _on_tile_selected(tile: Tile) -> void:
 
 
 func _input(event: InputEvent) -> void:
+	# ── CHOOSING_MOVE: hover, click, cancelar ──
+	if _state == State.CHOOSING_MOVE:
+		# Cancelar con ESC
+		if event is InputEventKey and event.pressed and event.keycode == KEY_ESCAPE:
+			_cancel_move()
+			get_viewport().set_input_as_handled()
+			return
+
+		# Cancelar con click derecho
+		if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_RIGHT:
+			_cancel_move()
+			get_viewport().set_input_as_handled()
+			return
+
+		# Hover: resaltar tile bajo el cursor
+		if event is InputEventMouseMotion:
+			var tile: Tile = _raycast_tile_at_mouse(event.position)
+			if tile and tile.coords in _valid_move_tiles:
+				if _hovered_tile and _hovered_tile != tile:
+					_hovered_tile.set_hover_highlighted(false)
+				tile.set_hover_highlighted(true)
+				_hovered_tile = tile
+			elif _hovered_tile:
+				_hovered_tile.set_hover_highlighted(false)
+				_hovered_tile = null
+			return
+
+		# Click izquierdo: seleccionar tile destino
+		if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
+			var tile: Tile = _raycast_tile_at_mouse(event.position)
+			if tile and tile.coords in _valid_move_tiles:
+				get_viewport().set_input_as_handled()
+				_execute_move(tile)
+			return
+
+		return  # No procesar otros eventos durante CHOOSING_MOVE
+
 	# Test damage: tecla T aplica 5 de daño físico a la unidad del tile seleccionado
 	if event is InputEventKey and event.pressed and event.keycode == KEY_T:
 		if _selected_tile and _selected_tile.occupied_by is Unit:

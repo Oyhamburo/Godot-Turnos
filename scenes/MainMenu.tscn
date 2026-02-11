@@ -40,26 +40,29 @@ layout_mode = 2
 text = "Turnos 3D"
 horizontal_alignment = 1
 
-[node name="BattleEasyButton" type="Button" parent="Safe/Center/VBox"]
-unique_name_in_owner = true
-custom_minimum_size = Vector2(520, 84)
-layout_mode = 2
-size_flags_horizontal = 3
-text = "Batalla fácil"
-
-[node name="BattleHardButton" type="Button" parent="Safe/Center/VBox"]
-unique_name_in_owner = true
-custom_minimum_size = Vector2(520, 84)
-layout_mode = 2
-size_flags_horizontal = 3
-text = "Batalla difícil"
-
 [node name="MapButton" type="Button" parent="Safe/Center/VBox"]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(520, 84)
 layout_mode = 2
 size_flags_horizontal = 3
 text = "Explorar mapa"
+
+[node name="BattleRow" type="HBoxContainer" parent="Safe/Center/VBox"]
+layout_mode = 2
+theme_override_constants/separation = 12
+
+[node name="BattleOption" type="OptionButton" parent="Safe/Center/VBox/BattleRow"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(320, 50)
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="BattleButton" type="Button" parent="Safe/Center/VBox/BattleRow"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(520, 84)
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Escena de batalla"
 
 [node name="OptionsButton" type="Button" parent="Safe/Center/VBox"]
 unique_name_in_owner = true

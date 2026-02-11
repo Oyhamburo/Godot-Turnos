@@ -17,7 +17,8 @@ enum AnimState {
 	SPAWN,
 	HIT,
 	DEATH,
-	ATTACK
+	ATTACK,
+	WALK
 }
 
 @export var data: UnitData
@@ -44,16 +45,22 @@ var _mesh_materials: Array[Material] = []
 var _use_unit_color: bool = true  # false cuando usamos material del GLB (conservar textura)
 var _anim_state: AnimState = AnimState.NONE
 
-# Habilidades por clase: [ { physical, magic, hit_chance }, ... ] (4 por clase). Más daño = menos hit_chance.
+## Mapeo ability_index → nombre de animación para ataques diferenciados.
+## Las subclases lo populan en _ready(). Fallback: "attack" (Interact genérico).
+var _attack_anim_for_ability: Dictionary = {}
+
+# Habilidades por clase: [ { physical, magic, hit_chance, range }, ... ] (4 por clase).
+# range: 99 = distancia (siempre disponible), 1 = melee (solo adyacente).
+# Ataques 1-2 son a distancia (débiles), ataques 3-4 son melee (fuertes).
 const _ABILITIES: Dictionary = {
-	"PlayerKnight": [ {"physical": 4, "magic": 0, "hit_chance": 0.95}, {"physical": 8, "magic": 0, "hit_chance": 0.88}, {"physical": 14, "magic": 0, "hit_chance": 0.78}, {"physical": 22, "magic": 0, "hit_chance": 0.60} ],
-	"PlayerMage": [ {"physical": 0, "magic": 4, "hit_chance": 0.95}, {"physical": 0, "magic": 9, "hit_chance": 0.88}, {"physical": 0, "magic": 15, "hit_chance": 0.75}, {"physical": 0, "magic": 24, "hit_chance": 0.58} ],
-	"PlayerRanger": [ {"physical": 3, "magic": 0, "hit_chance": 0.94}, {"physical": 6, "magic": 3, "hit_chance": 0.86}, {"physical": 10, "magic": 6, "hit_chance": 0.76}, {"physical": 14, "magic": 10, "hit_chance": 0.62} ],
-	"PlayerRogue": [ {"physical": 3, "magic": 0, "hit_chance": 0.96}, {"physical": 7, "magic": 0, "hit_chance": 0.88}, {"physical": 12, "magic": 0, "hit_chance": 0.75}, {"physical": 18, "magic": 0, "hit_chance": 0.58} ],
-	"PlayerBarbarian": [ {"physical": 5, "magic": 0, "hit_chance": 0.92}, {"physical": 11, "magic": 0, "hit_chance": 0.82}, {"physical": 18, "magic": 0, "hit_chance": 0.68}, {"physical": 26, "magic": 0, "hit_chance": 0.52} ],
-	"PlayerRogueHooded": [ {"physical": 3, "magic": 0, "hit_chance": 0.96}, {"physical": 7, "magic": 0, "hit_chance": 0.88}, {"physical": 12, "magic": 0, "hit_chance": 0.75}, {"physical": 18, "magic": 0, "hit_chance": 0.58} ],
+	"PlayerKnight": [ {"physical": 4, "magic": 0, "hit_chance": 0.95, "range": 99}, {"physical": 8, "magic": 0, "hit_chance": 0.88, "range": 99}, {"physical": 14, "magic": 0, "hit_chance": 0.78, "range": 1}, {"physical": 22, "magic": 0, "hit_chance": 0.60, "range": 1} ],
+	"PlayerMage": [ {"physical": 0, "magic": 4, "hit_chance": 0.95, "range": 99}, {"physical": 0, "magic": 9, "hit_chance": 0.88, "range": 99}, {"physical": 0, "magic": 15, "hit_chance": 0.75, "range": 1}, {"physical": 0, "magic": 24, "hit_chance": 0.58, "range": 1} ],
+	"PlayerRanger": [ {"physical": 3, "magic": 0, "hit_chance": 0.94, "range": 99}, {"physical": 6, "magic": 3, "hit_chance": 0.86, "range": 99}, {"physical": 10, "magic": 6, "hit_chance": 0.76, "range": 1}, {"physical": 14, "magic": 10, "hit_chance": 0.62, "range": 1} ],
+	"PlayerRogue": [ {"physical": 3, "magic": 0, "hit_chance": 0.96, "range": 99}, {"physical": 7, "magic": 0, "hit_chance": 0.88, "range": 99}, {"physical": 12, "magic": 0, "hit_chance": 0.75, "range": 1}, {"physical": 18, "magic": 0, "hit_chance": 0.58, "range": 1} ],
+	"PlayerBarbarian": [ {"physical": 5, "magic": 0, "hit_chance": 0.92, "range": 99}, {"physical": 11, "magic": 0, "hit_chance": 0.82, "range": 99}, {"physical": 18, "magic": 0, "hit_chance": 0.68, "range": 1}, {"physical": 26, "magic": 0, "hit_chance": 0.52, "range": 1} ],
+	"PlayerRogueHooded": [ {"physical": 3, "magic": 0, "hit_chance": 0.96, "range": 99}, {"physical": 7, "magic": 0, "hit_chance": 0.88, "range": 99}, {"physical": 12, "magic": 0, "hit_chance": 0.75, "range": 1}, {"physical": 18, "magic": 0, "hit_chance": 0.58, "range": 1} ],
 }
-const _ABILITIES_ENEMY: Array = [ {"physical": 2, "magic": 0, "hit_chance": 0.93}, {"physical": 5, "magic": 0, "hit_chance": 0.85}, {"physical": 9, "magic": 0, "hit_chance": 0.74}, {"physical": 14, "magic": 0, "hit_chance": 0.60} ]
+const _ABILITIES_ENEMY: Array = [ {"physical": 2, "magic": 0, "hit_chance": 0.93, "range": 99}, {"physical": 5, "magic": 0, "hit_chance": 0.85, "range": 99}, {"physical": 9, "magic": 0, "hit_chance": 0.74, "range": 1}, {"physical": 14, "magic": 0, "hit_chance": 0.60, "range": 1} ]
 
 static func get_ability(unit: Unit, ability_index: int) -> Dictionary:
 	if unit == null or ability_index < 0 or ability_index > 3:
@@ -194,11 +201,11 @@ func add_floating_hud() -> void:
 		return
 	var hud: Node3D = _FloatingHUDScene.instantiate()
 	add_child(hud)
-	hud.position = Vector3(0.0, 1.75, 0.0)
+	hud.position = Vector3(0.0, 1.85, 0.0)
 	if hud is FloatingHUD:
-		hud.setup(stats)
+		hud.setup(stats, display_name, team)
 		stats.hp_changed.connect(_on_stats_hp_changed)
-		print("[Unit] %s: FloatingHUD creado - HP %d/%d - pos: %s" % [display_name, stats.hp, stats.max_hp, hud.position])
+		print("[Unit] %s: FloatingHUD creado - HP %d/%d - team: %d - pos: %s" % [display_name, stats.hp, stats.max_hp, team, hud.position])
 	else:
 		print("[Unit] %s: hud instanciado pero no es FloatingHUD!" % display_name)
 
@@ -278,7 +285,7 @@ func _setup_rig_animations(rig_glb_path: String, anim_map: Dictionary) -> void:
 			else:
 				new_path = target_root_name + "/" + path_str
 			anim.track_set_path(i, NodePath(new_path))
-		if local_name == "idle":
+		if local_name == "idle" or local_name == "walk":
 			anim.loop_mode = Animation.LOOP_LINEAR
 		lib.add_animation(local_name, anim)
 	anim_source.queue_free()
@@ -299,6 +306,7 @@ func _anim_name_for_state(s: AnimState) -> String:
 		AnimState.HIT: return "hit"
 		AnimState.DEATH: return "death"
 		AnimState.ATTACK: return "attack"
+		AnimState.WALK: return "walk"
 		_: return ""
 
 ## Máquina de estados de animación: transiciona al estado indicado y reproduce la animación correspondiente.
@@ -317,7 +325,20 @@ func set_animation_state(s: AnimState) -> void:
 	if ap and anim_name != "" and ap.has_animation(anim_name):
 		_stop_idle()
 		_anim_state = s
-		ap.play(anim_name)
+		if s == AnimState.WALK:
+			ap.play(anim_name)
+			# Walk se loopea; no auto-transiciona a idle (el tween de move_to_tile lo controla)
+		else:
+			ap.play(anim_name)
+	elif s == AnimState.WALK:
+		# Fallback: bounce vertical simulando caminar
+		_stop_idle()
+		_anim_state = AnimState.WALK
+		_idle_tween = create_tween()
+		_idle_tween.set_loops()
+		_idle_tween.set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+		_idle_tween.tween_property(visual, "position:y", 0.08, 0.15)
+		_idle_tween.tween_property(visual, "position:y", 0.0, 0.15)
 	elif s == AnimState.SPAWN:
 		set_animation_state(AnimState.IDLE)
 	elif s == AnimState.IDLE:
@@ -339,6 +360,7 @@ func _stop_idle() -> void:
 		_idle_tween.kill()
 	_idle_tween = null
 	visual.scale = Vector3.ONE
+	visual.position.y = 0.0  # Resetear por si venia de walk fallback bounce
 	var ap: AnimationPlayer = _get_anim_ap()
 	if ap and ap.has_animation("idle"):
 		ap.stop()
@@ -414,33 +436,59 @@ func _approach_position(target: Unit) -> Vector3:
 	p.y = global_position.y
 	return p
 
+## Mueve la unidad al tile destino con animación de caminar.
+func move_to_tile(target_pos: Vector3) -> void:
+	if not alive:
+		return
+	var dest := target_pos + Vector3(0, 0.1, 0)
+	_face_target(dest)
+
+	# Intentar animación walk
+	set_animation_state(AnimState.WALK)
+
+	var move_tween := create_tween()
+	move_tween.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN_OUT)
+	var distance: float = global_position.distance_to(dest)
+	var duration: float = clampf(distance / 3.0, 0.3, 1.5)
+	move_tween.tween_property(self, "global_position", dest, duration)
+	await move_tween.finished
+
+	set_animation_state(AnimState.IDLE)
+
+
 func attack_target(target: Unit, ability_index: int = 0) -> void:
-	# Async action: move -> attack anim -> resolve dodge/hit/crit -> damage -> return.
+	# Async action: approach (melee) o stay (ranged) -> attack anim -> resolve -> return.
 	if not alive or not target or not target.alive:
 		return
 
 	set_animation_state(AnimState.NONE)
 	set_selected(false)
 
+	var ab: Dictionary = Unit.get_ability(self, ability_index)
+	var is_melee: bool = ab.get("range", 99) <= 1
 	var start_pos := global_position
 	var start_rot := global_rotation
 
-	var approach := _approach_position(target)
-
 	_face_target(target.global_position)
-	var t_move := create_tween()
-	t_move.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
-	t_move.tween_property(self, "global_position", approach, 0.35)
-	await t_move.finished
 
-	await _play_attack_animation()
+	if is_melee:
+		# Melee: acercarse al enemigo
+		var approach := _approach_position(target)
+		var t_move := create_tween()
+		t_move.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+		t_move.tween_property(self, "global_position", approach, 0.35)
+		await t_move.finished
+
+	await _play_attack_animation(ability_index)
 
 	_resolve_attack_damage(target, ability_index)
 
-	var t_back := create_tween()
-	t_back.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN_OUT)
-	t_back.tween_property(self, "global_position", start_pos, 0.35)
-	await t_back.finished
+	if is_melee:
+		# Solo volver si se acercó
+		var t_back := create_tween()
+		t_back.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN_OUT)
+		t_back.tween_property(self, "global_position", start_pos, 0.35)
+		await t_back.finished
 
 	# Restore original rotation por el camino más corto (evita giro de 360° por Euler ±PI).
 	var current_y := global_rotation.y
@@ -536,20 +584,36 @@ func _spawn_one_floating_text(text: String, text_color: Color, vertical_offset: 
 	t.set_parallel(false)
 	t.tween_callback(label.queue_free)
 
-## Reproduce la animación de ataque (Interact del rig si existe) y espera a que termine.
-func _play_attack_animation() -> void:
+## Reproduce la animación de ataque correspondiente al ability_index.
+## Busca en _attack_anim_for_ability; fallback a "attack" (Interact genérico).
+func _play_attack_animation(ability_index: int = 0) -> void:
 	var ap: AnimationPlayer = _get_anim_ap()
-	if ap and ap.has_animation("attack"):
-		set_animation_state(AnimState.ATTACK)
+	if not ap:
+		await _fallback_attack_tween()
+		return
+
+	# Buscar animación específica para esta habilidad
+	var anim_name: String = _attack_anim_for_ability.get(ability_index, "attack")
+	if not ap.has_animation(anim_name):
+		anim_name = "attack"  # Fallback a genérico (Interact)
+
+	if ap.has_animation(anim_name):
+		_stop_idle()
+		_anim_state = AnimState.ATTACK
+		ap.play(anim_name)
 		await ap.animation_finished
 	else:
-		# Fallback: squash + flash para unidades sin animación de ataque.
-		var t := create_tween()
-		t.set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
-		t.tween_property(visual, "scale", Vector3(1.12, 0.88, 1.12), 0.12)
-		t.tween_property(visual, "scale", Vector3.ONE, 0.12)
-		for m in _mesh_materials:
-			if m is StandardMaterial3D:
-				t.parallel().tween_property(m, "albedo_color", _base_color.lightened(0.25), 0.10)
-				t.parallel().tween_property(m, "albedo_color", _base_color, 0.20)
-		await t.finished
+		await _fallback_attack_tween()
+
+
+## Fallback visual: squash + flash para unidades sin animación de ataque.
+func _fallback_attack_tween() -> void:
+	var t := create_tween()
+	t.set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	t.tween_property(visual, "scale", Vector3(1.12, 0.88, 1.12), 0.12)
+	t.tween_property(visual, "scale", Vector3.ONE, 0.12)
+	for m in _mesh_materials:
+		if m is StandardMaterial3D:
+			t.parallel().tween_property(m, "albedo_color", _base_color.lightened(0.25), 0.10)
+			t.parallel().tween_property(m, "albedo_color", _base_color, 0.20)
+	await t.finished

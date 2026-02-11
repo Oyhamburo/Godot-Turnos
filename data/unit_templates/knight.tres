@@ -1,0 +1,17 @@
+[gd_resource type="Resource" script_class="UnitStatsTemplate" load_steps=2 format=3 uid="uid://unit_template_knight"]
+
+[ext_resource type="Script" path="res://scripts/unit/stats/unit_stats_template.gd" id="1_script"]
+
+[resource]
+script = ExtResource("1_script")
+display_name = "Caballero"
+team = 0
+max_hp = 45
+max_mana = 0
+speed = 8
+armor = 8
+magic_resist = 2
+physical_damage = 10
+magic_damage = 0
+evasion = 0.03
+crit_chance = 0.05

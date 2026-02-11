@@ -4,6 +4,7 @@
 
 # Godot-specific
 export_presets.cfg
+.battle_test_config.cfg
 
 # Mono-specific ignores
 .mono/

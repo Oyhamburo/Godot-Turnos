@@ -18,6 +18,10 @@ var world_position: Vector3 = Vector3.ZERO
 func _ready() -> void:
 	# La selección se hace por raycast desde BattleFlow; el Area queda para hit detection.
 	area.input_event.connect(_on_area_input_event)
+	# Duplicar material del highlight para que cada tile tenga su propia instancia
+	# (el SubResource de Tile.tscn es compartido entre todas las instancias).
+	if highlight_mesh and highlight_mesh.material_override:
+		highlight_mesh.material_override = highlight_mesh.material_override.duplicate()
 
 
 ## Configura el visual del piso. floor_scene: escena a instanciar; si null, usa fallback PlaneMesh.
@@ -76,6 +80,23 @@ func _apply_blocked_material(mi: MeshInstance3D) -> void:
 func set_highlighted(on: bool) -> void:
 	if highlight_mesh:
 		highlight_mesh.visible = on
+		if on:
+			# Restaurar color verde de rango válido
+			var mat: StandardMaterial3D = highlight_mesh.material_override as StandardMaterial3D
+			if mat:
+				mat.albedo_color = Color(0.2, 0.8, 0.4, 0.4)
+
+
+## Cambia el highlight a azul claro para indicar hover (solo si el tile ya está visible/highlighted).
+func set_hover_highlighted(on: bool) -> void:
+	if not highlight_mesh or not highlight_mesh.visible:
+		return
+	var mat: StandardMaterial3D = highlight_mesh.material_override as StandardMaterial3D
+	if mat:
+		if on:
+			mat.albedo_color = Color(0.3, 0.6, 1.0, 0.5)
+		else:
+			mat.albedo_color = Color(0.2, 0.8, 0.4, 0.4)
 
 
 func _on_area_input_event(_camera: Node, event: InputEvent, _pos: Vector3, _normal: Vector3, _shape_idx: int) -> void:

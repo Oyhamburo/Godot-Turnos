@@ -1,0 +1,17 @@
+[gd_resource type="Resource" script_class="UnitStatsTemplate" load_steps=2 format=3 uid="uid://unit_template_mage"]
+
+[ext_resource type="Script" path="res://scripts/unit/stats/unit_stats_template.gd" id="1_script"]
+
+[resource]
+script = ExtResource("1_script")
+display_name = "Mago"
+team = 0
+max_hp = 28
+max_mana = 40
+speed = 9
+armor = 1
+magic_resist = 8
+physical_damage = 2
+magic_damage = 12
+evasion = 0.05
+crit_chance = 0.08

@@ -8,6 +8,7 @@ class_name UnitStats
 signal hp_changed(current: int, max_val: int)
 signal mana_changed(current: int, max_val: int)
 signal stats_changed()
+signal ap_sp_changed(current_ap: int, current_sp: int)
 
 var template: UnitStatsTemplate
 
@@ -24,6 +25,12 @@ var physical_damage: int = 8
 var magic_damage: int = 0
 var evasion: float = 0.05
 var crit_chance: float = 0.05
+
+# Acciones por turno (se resetean cada turno)
+var max_primary_actions: int = 1
+var max_secondary_actions: int = 2
+var current_ap: int = 1
+var current_sp: int = 2
 
 
 static func from_template(t: UnitStatsTemplate) -> UnitStats:
@@ -42,6 +49,10 @@ static func from_template(t: UnitStatsTemplate) -> UnitStats:
 	s.magic_damage = maxi(0, t.magic_damage)
 	s.evasion = clampf(t.evasion, 0.0, 1.0)
 	s.crit_chance = clampf(t.crit_chance, 0.0, 1.0)
+	s.max_primary_actions = maxi(1, t.max_primary_actions)
+	s.max_secondary_actions = maxi(0, t.max_secondary_actions)
+	s.current_ap = s.max_primary_actions
+	s.current_sp = s.max_secondary_actions
 	return s
 
 
@@ -94,3 +105,35 @@ func _set_hp(v: int) -> void:
 func _set_mana(v: int) -> void:
 	mana = clampi(v, 0, max_mana)
 	mana_changed.emit(mana, max_mana)
+
+
+# ── ACCIONES POR TURNO (AP/SP) ────────────────────────────
+
+## Resetea AP y SP al máximo (llamar al inicio de cada turno).
+func reset_turn_actions() -> void:
+	current_ap = max_primary_actions
+	current_sp = max_secondary_actions
+	ap_sp_changed.emit(current_ap, current_sp)
+
+
+## Gasta AP. Devuelve true si se pudo gastar.
+func spend_ap(amount: int = 1) -> bool:
+	if current_ap < amount:
+		return false
+	current_ap -= amount
+	ap_sp_changed.emit(current_ap, current_sp)
+	return true
+
+
+## Gasta SP. Devuelve true si se pudo gastar.
+func spend_sp(amount: int = 1) -> bool:
+	if current_sp < amount:
+		return false
+	current_sp -= amount
+	ap_sp_changed.emit(current_ap, current_sp)
+	return true
+
+
+## Devuelve true si quedan acciones (AP o SP > 0).
+func has_actions_remaining() -> bool:
+	return current_ap > 0 or current_sp > 0

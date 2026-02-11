@@ -180,3 +180,68 @@ func clear_selection() -> void:
 	if _selected_tile:
 		_selected_tile.set_highlighted(false)
 		_selected_tile = null
+
+
+## BFS de rango de movimiento: devuelve coords alcanzables desde origin en max_steps pasos.
+## Solo tiles walkable y no ocupados. Excluye el origin.
+func get_movement_range(origin: Vector2i, max_steps: int) -> Array[Vector2i]:
+	var result: Array[Vector2i] = []
+	var visited: Dictionary = {}
+	var queue: Array = [[origin, 0]]
+	visited[origin] = true
+	while not queue.is_empty():
+		var current: Array = queue.pop_front()
+		var coord: Vector2i = current[0]
+		var dist: int = current[1]
+		if coord != origin:
+			result.append(coord)
+		if dist >= max_steps:
+			continue
+		for neighbor in _get_neighbors(coord):
+			if neighbor in visited:
+				continue
+			var tile: Tile = get_tile_at(neighbor)
+			if not tile or not tile.walkable or tile.occupied_by:
+				continue
+			visited[neighbor] = true
+			queue.append([neighbor, dist + 1])
+	return result
+
+
+func _get_neighbors(coord: Vector2i) -> Array[Vector2i]:
+	return [
+		coord + Vector2i(1, 0),
+		coord + Vector2i(-1, 0),
+		coord + Vector2i(0, 1),
+		coord + Vector2i(0, -1),
+	]
+
+
+## Resalta los tiles indicados (verde de rango válido).
+func highlight_tiles(coords: Array[Vector2i]) -> void:
+	for c in coords:
+		var tile: Tile = get_tile_at(c)
+		if tile:
+			tile.set_highlighted(true)
+
+
+## Limpia el highlight de todos los tiles del tablero.
+func clear_all_highlights() -> void:
+	for tile in tiles.values():
+		if tile is Tile:
+			tile.set_highlighted(false)
+			tile.set_hover_highlighted(false)
+
+
+## Busca las coordenadas del tile que ocupa una unidad.
+func get_coords_for_unit(unit: Node) -> Vector2i:
+	for coord in tiles:
+		var tile: Tile = tiles[coord]
+		if tile and tile.occupied_by == unit:
+			return coord
+	return Vector2i(-1, -1)
+
+
+## Distancia Manhattan entre dos coordenadas de tile.
+func get_tile_distance(coord1: Vector2i, coord2: Vector2i) -> int:
+	return absi(coord1.x - coord2.x) + absi(coord1.y - coord2.y)

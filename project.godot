@@ -19,7 +19,7 @@ config/icon="res://icon.svg"
 
 ImportCheck="*res://autoload/ImportCheck.gd"
 Settings="*res://autoload/Settings.gd"
-BattleManager="*res://autoload/BattleManager.gd"
+BattleLauncher="*res://autoload/BattleLauncher.gd"
 
 [display]
 
@@ -30,7 +30,7 @@ window/stretch/aspect="expand"
 
 [editor_plugins]
 
-enabled=PackedStringArray("res://addons/hex_building_editor/plugin.cfg", "res://addons/hex_map_editor/plugin.cfg")
+enabled=PackedStringArray("res://addons/battle_encounter_builder/plugin.cfg", "res://addons/hex_building_editor/plugin.cfg", "res://addons/hex_map_editor/plugin.cfg")
 
 [rendering]
 

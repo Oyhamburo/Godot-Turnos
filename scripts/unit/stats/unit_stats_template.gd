@@ -19,3 +19,7 @@ class_name UnitStatsTemplate
 
 @export_range(0.0, 1.0) var evasion: float = 0.05
 @export_range(0.0, 1.0) var crit_chance: float = 0.05
+
+@export_group("Acciones por turno")
+@export var max_primary_actions: int = 1    ## AP por turno (atacar cuesta 1)
+@export var max_secondary_actions: int = 2  ## SP por turno (moverse 1 casilla cuesta 1)
