@@ -10,6 +10,7 @@ var coords: Vector2i = Vector2i.ZERO
 var walkable: bool = true
 var occupied_by: Node = null
 var world_position: Vector3 = Vector3.ZERO
+var _is_range_highlighted: bool = false  # true cuando el tile está en rango de movimiento
 
 @onready var floor_container: Node3D = $FloorContainer
 @onready var area: Area3D = $Area3D
@@ -78,25 +79,59 @@ func _apply_blocked_material(mi: MeshInstance3D) -> void:
 
 
 func set_highlighted(on: bool) -> void:
+	_is_range_highlighted = on
 	if highlight_mesh:
 		highlight_mesh.visible = on
+		# Elevar ligeramente para evitar z-fighting con el piso
+		highlight_mesh.position.y = 0.02 if on else 0.0
 		if on:
-			# Restaurar color verde de rango válido
 			var mat: StandardMaterial3D = highlight_mesh.material_override as StandardMaterial3D
 			if mat:
-				mat.albedo_color = Color(0.2, 0.8, 0.4, 0.4)
+				mat.albedo_color = Color(0.1, 1.0, 0.3, 0.55)
+				mat.emission_enabled = true
+				mat.emission = Color(0.1, 0.8, 0.3)
+				mat.emission_energy_multiplier = 0.5
+		else:
+			var mat: StandardMaterial3D = highlight_mesh.material_override as StandardMaterial3D
+			if mat:
+				mat.emission_enabled = false
 
 
-## Cambia el highlight a azul claro para indicar hover (solo si el tile ya está visible/highlighted).
-func set_hover_highlighted(on: bool) -> void:
-	if not highlight_mesh or not highlight_mesh.visible:
+## Muestra hover sobre el tile. is_valid=true → verde (puede moverse), false → rojo (no puede).
+## Funciona sobre CUALQUIER tile, no solo los que están en rango.
+func set_hover_highlighted(on: bool, is_valid: bool = true) -> void:
+	if not highlight_mesh:
 		return
 	var mat: StandardMaterial3D = highlight_mesh.material_override as StandardMaterial3D
-	if mat:
-		if on:
-			mat.albedo_color = Color(0.3, 0.6, 1.0, 0.5)
+	if not mat:
+		return
+	if on:
+		highlight_mesh.visible = true
+		highlight_mesh.position.y = 0.02
+		if is_valid:
+			# Verde brillante: puede moverse aquí
+			mat.albedo_color = Color(0.2, 1.0, 0.4, 0.65)
+			mat.emission_enabled = true
+			mat.emission = Color(0.1, 0.9, 0.3)
+			mat.emission_energy_multiplier = 0.7
 		else:
-			mat.albedo_color = Color(0.2, 0.8, 0.4, 0.4)
+			# Rojo: no puede moverse aquí
+			mat.albedo_color = Color(1.0, 0.2, 0.2, 0.55)
+			mat.emission_enabled = true
+			mat.emission = Color(0.9, 0.1, 0.1)
+			mat.emission_energy_multiplier = 0.5
+	else:
+		# Restaurar estado previo
+		if _is_range_highlighted:
+			# Volver al verde de rango base
+			mat.albedo_color = Color(0.1, 1.0, 0.3, 0.55)
+			mat.emission_enabled = true
+			mat.emission = Color(0.1, 0.8, 0.3)
+			mat.emission_energy_multiplier = 0.5
+		else:
+			# No estaba en rango: ocultar
+			highlight_mesh.visible = false
+			mat.emission_enabled = false
 
 
 func _on_area_input_event(_camera: Node, event: InputEvent, _pos: Vector3, _normal: Vector3, _shape_idx: int) -> void:

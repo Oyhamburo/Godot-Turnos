@@ -310,6 +310,7 @@ func _anim_name_for_state(s: AnimState) -> String:
 		_: return ""
 
 ## Máquina de estados de animación: transiciona al estado indicado y reproduce la animación correspondiente.
+## Transiciones IDLE↔WALK usan cross-fade (blend) de 0.25s para suavidad.
 func set_animation_state(s: AnimState) -> void:
 	if s == AnimState.NONE:
 		_stop_idle()
@@ -320,14 +321,19 @@ func set_animation_state(s: AnimState) -> void:
 	if _anim_state == s and s == AnimState.IDLE:
 		return
 
+	var prev_state: AnimState = _anim_state
 	var ap: AnimationPlayer = _get_anim_ap()
 	var anim_name := _anim_name_for_state(s)
 	if ap and anim_name != "" and ap.has_animation(anim_name):
-		_stop_idle()
+		# Blend suave para transiciones IDLE↔WALK; instantáneo para el resto
+		var use_blend: bool = (
+			(prev_state == AnimState.IDLE and s == AnimState.WALK) or
+			(prev_state == AnimState.WALK and s == AnimState.IDLE)
+		)
+		_stop_idle_tween()  # Matar tween de breathing/bounce, sin parar AnimationPlayer
 		_anim_state = s
-		if s == AnimState.WALK:
-			ap.play(anim_name)
-			# Walk se loopea; no auto-transiciona a idle (el tween de move_to_tile lo controla)
+		if use_blend:
+			ap.play(anim_name, 0.25)  # Cross-fade 0.25s
 		else:
 			ap.play(anim_name)
 	elif s == AnimState.WALK:
@@ -355,14 +361,20 @@ func set_animation_state(s: AnimState) -> void:
 func play_idle() -> void:
 	set_animation_state(AnimState.IDLE)
 
-func _stop_idle() -> void:
+## Detiene solo el tween de breathing/bounce, sin tocar el AnimationPlayer.
+## Usado para transiciones con blend donde el AP necesita seguir corriendo.
+func _stop_idle_tween() -> void:
 	if _idle_tween and _idle_tween.is_running():
 		_idle_tween.kill()
 	_idle_tween = null
 	visual.scale = Vector3.ONE
-	visual.position.y = 0.0  # Resetear por si venia de walk fallback bounce
+	visual.position.y = 0.0
+
+
+func _stop_idle() -> void:
+	_stop_idle_tween()
 	var ap: AnimationPlayer = _get_anim_ap()
-	if ap and ap.has_animation("idle"):
+	if ap and ap.is_playing():
 		ap.stop()
 
 func _on_animation_finished(_anim_name: StringName) -> void:

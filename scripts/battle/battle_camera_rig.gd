@@ -37,7 +37,7 @@ func _input(event: InputEvent) -> void:
 		get_viewport().set_input_as_handled()
 
 
-## Posiciona la cámara en vista elevada/diagonal del tablero.
+## Posiciona la cámara en vista elevada/diagonal del tablero (transición orbital suave).
 func tween_to_overview(center: Vector3, size: Vector2, duration: float) -> void:
 	_stop_current_tween()
 	if not _camera:
@@ -45,18 +45,34 @@ func tween_to_overview(center: Vector3, size: Vector2, duration: float) -> void:
 
 	var max_dim: float = maxf(size.x, size.y)
 	var distance: float = max_dim * OVERVIEW_DISTANCE_FACTOR
-	var target_pos: Vector3 = center + Vector3(
-		distance * 0.5,
-		distance * 0.4 + OVERVIEW_HEIGHT_OFFSET,
-		distance * 0.5
-	)
-	print("[Camera] tween_to_overview: center=%s size=%s cam_from=%s cam_to=%s look_at=%s" % [center, size, _camera.global_position, target_pos, center])
-	_camera.look_at(center, Vector3.UP)
+	var offset := Vector3(distance * 0.5, distance * 0.4 + OVERVIEW_HEIGHT_OFFSET, distance * 0.5)
+
+	_orbit_target = center
+	_orbit_look_target = center
+
+	var from_polar: Vector3 = _cam_to_polar(center)
+	var to_polar: Vector3 = _offset_to_polar(offset)
+
+	var angle_diff: float = wrapf(to_polar.x - from_polar.x, -PI, PI)
+	var final_angle: float = from_polar.x + angle_diff
+
+	print("[Camera] tween_to_overview: center=%s size=%s orbit %.0f°→%.0f°" % [center, size, rad_to_deg(from_polar.x), rad_to_deg(final_angle)])
 
 	_current_tween = create_tween()
-	_current_tween.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN_OUT)
-	_current_tween.tween_property(_camera, "global_position", target_pos, duration)
-	_current_tween.tween_callback(_camera.look_at.bind(center, Vector3.UP))
+	_current_tween.set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+	_current_tween.tween_method(
+		func(t: float) -> void:
+			var angle: float = lerpf(from_polar.x, final_angle, t)
+			var radius: float = lerpf(from_polar.y, to_polar.y, t)
+			var height: float = lerpf(from_polar.z, to_polar.z, t)
+			_camera.global_position = _orbit_target + Vector3(
+				cos(angle) * radius,
+				height,
+				sin(angle) * radius
+			)
+			_camera.look_at(_orbit_look_target, Vector3.UP),
+		0.0, 1.0, duration
+	)
 
 
 ## Enfoca la cámara en un punto (ej. posición de una unidad).
@@ -103,6 +119,58 @@ func tween_to_attack_view(unit_pos: Vector3) -> void:
 ## Vista alternativa para menú de items.
 func tween_to_item_view(unit_pos: Vector3) -> void:
 	_tween_to_offset_view(unit_pos, ITEM_VIEW_OFFSET, "item_view")
+
+
+## Vista de combate que encuadra a ambos personajes (attacker + target) de costado.
+## Calcula el punto medio, ajusta radio según separación y posiciona la cámara perpendicular.
+func tween_to_combat_view(attacker_pos: Vector3, target_pos: Vector3) -> void:
+	_stop_current_tween()
+	if not _camera:
+		return
+
+	var midpoint: Vector3 = (attacker_pos + target_pos) * 0.5
+	var separation: float = attacker_pos.distance_to(target_pos)
+	var min_radius: float = 4.0
+	var radius: float = maxf(min_radius, separation * 0.8 + 2.0)
+	var height: float = 2.5
+
+	# Dirección perpendicular a la línea attacker→target (para ver ambos de costado)
+	var dir: Vector3 = (target_pos - attacker_pos).normalized()
+	# Si están en el mismo sitio, usar dirección por defecto
+	if dir.length_squared() < 0.01:
+		dir = Vector3(1, 0, 0)
+	var perp: Vector3 = Vector3(-dir.z, 0, dir.x)  # Perpendicular en plano XZ
+
+	_orbit_target = midpoint
+	_orbit_look_target = midpoint + Vector3(0, 1.0, 0)
+
+	var cam_target: Vector3 = midpoint + perp * radius + Vector3(0, height, 0)
+	var to_offset: Vector3 = cam_target - midpoint
+
+	var from_polar: Vector3 = _cam_to_polar(midpoint)
+	var to_polar: Vector3 = _offset_to_polar(to_offset)
+
+	# Interpolar ángulo por camino más corto
+	var angle_diff: float = wrapf(to_polar.x - from_polar.x, -PI, PI)
+	var final_angle: float = from_polar.x + angle_diff
+
+	print("[Camera] combat_view: midpoint=%s sep=%.1f radius=%.1f" % [midpoint, separation, radius])
+
+	_current_tween = create_tween()
+	_current_tween.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN_OUT)
+	_current_tween.tween_method(
+		func(t: float) -> void:
+			var angle: float = lerpf(from_polar.x, final_angle, t)
+			var r: float = lerpf(from_polar.y, to_polar.y, t)
+			var h: float = lerpf(from_polar.z, to_polar.z, t)
+			_camera.global_position = _orbit_target + Vector3(
+				cos(angle) * r,
+				h,
+				sin(angle) * r
+			)
+			_camera.look_at(_orbit_look_target, Vector3.UP),
+		0.0, 1.0, COMBAT_TWEEN_DURATION
+	)
 
 
 ## Transición orbital suave: la cámara orbita alrededor del personaje usando

@@ -1,4 +1,4 @@
-[gd_scene load_steps=6 format=3 uid="uid://c2skeleton_rogue"]
+[gd_scene load_steps=6 format=3 uid="uid://bbbvhh281sx6b"]
 
 [ext_resource type="Script" uid="uid://cyd28nq8egt1u" path="res://scripts/units/EnemyUnit.gd" id="1_eu"]
 [ext_resource type="PackedScene" uid="uid://b8ge2wimibis5" path="res://assets/KayKit_Skeletons_1.1_FREE/characters/gltf/Skeleton_Rogue.glb" id="2_glb"]

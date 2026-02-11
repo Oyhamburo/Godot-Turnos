@@ -418,6 +418,10 @@ func _start_enemy_turn() -> void:
 	])
 
 	_state = State.ANIMATING
+
+	# Cámara encuadra a ambos personajes durante el ataque
+	camera_rig.tween_to_combat_view(_current_unit.global_position, target.global_position)
+
 	await _current_unit.attack_target(target, ability_idx)
 
 	# Pequeña pausa después del ataque
@@ -507,6 +511,9 @@ func _on_hud_attack_selected(index: int) -> void:
 
 	_current_unit.stats.spend_ap(1)
 
+	# Cámara encuadra a ambos personajes durante el ataque
+	camera_rig.tween_to_combat_view(_current_unit.global_position, target.global_position)
+
 	await _current_unit.attack_target(target, _selected_ability_index)
 
 	# Pequeña pausa después del ataque
@@ -577,6 +584,7 @@ func _cancel_move() -> void:
 	board.clear_all_highlights()
 	_valid_move_tiles.clear()
 	_hovered_tile = null
+	_current_unit.set_animation_state(Unit.AnimState.IDLE)
 	_state = State.CHOOSING_ACTION
 	camera_rig.tween_to_action_view(_current_unit.global_position)
 	if hud:
@@ -818,13 +826,14 @@ func _input(event: InputEvent) -> void:
 			get_viewport().set_input_as_handled()
 			return
 
-		# Hover: resaltar tile bajo el cursor
+		# Hover: resaltar tile bajo el cursor (verde si válido, rojo si no)
 		if event is InputEventMouseMotion:
 			var tile: Tile = _raycast_tile_at_mouse(event.position)
-			if tile and tile.coords in _valid_move_tiles:
+			if tile:
 				if _hovered_tile and _hovered_tile != tile:
 					_hovered_tile.set_hover_highlighted(false)
-				tile.set_hover_highlighted(true)
+				var is_valid: bool = tile.coords in _valid_move_tiles
+				tile.set_hover_highlighted(true, is_valid)
 				_hovered_tile = tile
 			elif _hovered_tile:
 				_hovered_tile.set_hover_highlighted(false)
