@@ -1,0 +1,20 @@
+[gd_resource type="Resource" script_class="WeaponData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/data/WeaponData.gd" id="1_script"]
+
+[resource]
+script = ExtResource("1_script")
+display_name = "Daga"
+weapon_type = 4
+slot = 0
+scene_3d_path = "res://assets/KayKit_Adventurers_2.0_FREE/Assets/gltf/sword_1handed.gltf"
+hand_offset_pos = Vector3(0, 0, 0)
+hand_offset_rot = Vector3(0, 0, 0)
+bonus_physical_damage = 3
+bonus_magic_damage = 0
+bonus_armor = 0
+bonus_magic_resist = 0
+bonus_speed = 2
+bonus_evasion = 0.05
+bonus_crit_chance = 0.1
+abilities = [{"display_name": "Puñalada", "physical": 8, "magic": 0, "hit_chance": 0.95, "range": 1, "anim_name": "melee_1h_stab"}, {"display_name": "Cuchillada", "physical": 13, "magic": 0, "hit_chance": 0.82, "range": 1, "anim_name": "melee_1h_slice"}]

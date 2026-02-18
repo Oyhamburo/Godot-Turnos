@@ -32,6 +32,16 @@ var max_secondary_actions: int = 2
 var current_ap: int = 1
 var current_sp: int = 2
 
+# ── Registro acumulado de batalla (no se resetean) ────────
+var battle_damage_dealt: int = 0    # Daño total infligido a enemigos
+var battle_damage_taken: int = 0    # Daño total recibido
+var battle_kills: int = 0           # Enemigos eliminados
+var battle_hits: int = 0            # Golpes conectados
+var battle_misses: int = 0          # Golpes fallados (falló o esquivado)
+var battle_crits: int = 0           # Golpes críticos
+var battle_blocks: int = 0          # Bloqueos con Defender exitosos
+var battle_evades: int = 0          # Esquivas exitosas
+
 
 static func from_template(t: UnitStatsTemplate) -> UnitStats:
 	var s := UnitStats.new()
@@ -137,3 +147,9 @@ func spend_sp(amount: int = 1) -> bool:
 ## Devuelve true si quedan acciones (AP o SP > 0).
 func has_actions_remaining() -> bool:
 	return current_ap > 0 or current_sp > 0
+
+
+## Notifica que los stats cambiaron externamente (p. ej. bonuses de arma).
+## Llamar desde Unit.gd tras aplicar/quitar bonuses de WeaponData.
+func notify_stats_changed() -> void:
+	stats_changed.emit()

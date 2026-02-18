@@ -45,29 +45,62 @@ var _mesh_materials: Array[Material] = []
 var _use_unit_color: bool = true  # false cuando usamos material del GLB (conservar textura)
 var _anim_state: AnimState = AnimState.NONE
 
-## Mapeo ability_index → nombre de animación para ataques diferenciados.
-## Las subclases lo populan en _ready(). Fallback: "attack" (Interact genérico).
-var _attack_anim_for_ability: Dictionary = {}
+## Sistema de armas — BoneAttachment3D en handslot.r / handslot.l del Skeleton3D.
+enum WeaponSlot { RIGHT_HAND, LEFT_HAND }
+var _skeleton: Skeleton3D = null
+var _weapon_attachment_r: BoneAttachment3D = null
+var _weapon_attachment_l: BoneAttachment3D = null
+var _equipped_weapon_r: Node3D = null
+var _equipped_weapon_l: Node3D = null
 
-# Habilidades por clase: [ { physical, magic, hit_chance, range }, ... ] (4 por clase).
-# range: 99 = distancia (siempre disponible), 1 = melee (solo adyacente).
-# Ataques 1-2 son a distancia (débiles), ataques 3-4 son melee (fuertes).
-const _ABILITIES: Dictionary = {
-	"PlayerKnight": [ {"physical": 4, "magic": 0, "hit_chance": 0.95, "range": 99}, {"physical": 8, "magic": 0, "hit_chance": 0.88, "range": 99}, {"physical": 14, "magic": 0, "hit_chance": 0.78, "range": 1}, {"physical": 22, "magic": 0, "hit_chance": 0.60, "range": 1} ],
-	"PlayerMage": [ {"physical": 0, "magic": 4, "hit_chance": 0.95, "range": 99}, {"physical": 0, "magic": 9, "hit_chance": 0.88, "range": 99}, {"physical": 0, "magic": 15, "hit_chance": 0.75, "range": 1}, {"physical": 0, "magic": 24, "hit_chance": 0.58, "range": 1} ],
-	"PlayerRanger": [ {"physical": 3, "magic": 0, "hit_chance": 0.94, "range": 99}, {"physical": 6, "magic": 3, "hit_chance": 0.86, "range": 99}, {"physical": 10, "magic": 6, "hit_chance": 0.76, "range": 1}, {"physical": 14, "magic": 10, "hit_chance": 0.62, "range": 1} ],
-	"PlayerRogue": [ {"physical": 3, "magic": 0, "hit_chance": 0.96, "range": 99}, {"physical": 7, "magic": 0, "hit_chance": 0.88, "range": 99}, {"physical": 12, "magic": 0, "hit_chance": 0.75, "range": 1}, {"physical": 18, "magic": 0, "hit_chance": 0.58, "range": 1} ],
-	"PlayerBarbarian": [ {"physical": 5, "magic": 0, "hit_chance": 0.92, "range": 99}, {"physical": 11, "magic": 0, "hit_chance": 0.82, "range": 99}, {"physical": 18, "magic": 0, "hit_chance": 0.68, "range": 1}, {"physical": 26, "magic": 0, "hit_chance": 0.52, "range": 1} ],
-	"PlayerRogueHooded": [ {"physical": 3, "magic": 0, "hit_chance": 0.96, "range": 99}, {"physical": 7, "magic": 0, "hit_chance": 0.88, "range": 99}, {"physical": 12, "magic": 0, "hit_chance": 0.75, "range": 1}, {"physical": 18, "magic": 0, "hit_chance": 0.58, "range": 1} ],
+## WeaponData equipado en mano derecha (o arma 2H); null = vacío.
+var _equipped_weapon_data_r: WeaponData = null
+## WeaponData equipado en mano izquierda; null = vacío. Igual a _r si es 2H.
+var _equipped_weapon_data_l: WeaponData = null
+
+## Inventario del jugador (null en enemigos).
+var inventory: Inventory = null
+
+## true cuando la unidad usó "Defender" este turno: anula el siguiente golpe recibido.
+var _blocking: bool = false
+
+## Último enemigo atacado por esta unidad (para orientarse al terminar de moverse).
+var _last_attacked_unit: Unit = null
+
+## Habilidad básica de golpe: disponible siempre que no haya arma equipada.
+const BASIC_MELEE_ABILITY: Dictionary = {
+	"display_name": "Golpe Básico",
+	"physical": 3,
+	"magic": 0,
+	"hit_chance": 0.90,
+	"range": 1,
+	"anim_name": "melee_punch"
 }
-const _ABILITIES_ENEMY: Array = [ {"physical": 2, "magic": 0, "hit_chance": 0.93, "range": 99}, {"physical": 5, "magic": 0, "hit_chance": 0.85, "range": 99}, {"physical": 9, "magic": 0, "hit_chance": 0.74, "range": 1}, {"physical": 14, "magic": 0, "hit_chance": 0.60, "range": 1} ]
 
+## Devuelve todas las habilidades combinadas de ambas manos equipadas.
+## Si ninguna mano tiene arma, devuelve array vacío (get_ability() devolverá BASIC_MELEE_ABILITY).
+static func get_all_abilities(unit: Unit) -> Array[Dictionary]:
+	var result: Array[Dictionary] = []
+	if unit == null:
+		return result
+	var wr: WeaponData = unit._equipped_weapon_data_r
+	var wl: WeaponData = unit._equipped_weapon_data_l
+	if wr != null and not wr.abilities.is_empty():
+		result.append_array(wr.abilities)
+	# Incluir mano izquierda sólo si es un arma distinta (evita duplicar bonuses de 2H)
+	if wl != null and wl != wr and not wl.abilities.is_empty():
+		result.append_array(wl.abilities)
+	return result
+
+## Devuelve la habilidad en ability_index combinando ambas manos.
+## Si no hay arma en ninguna mano, devuelve BASIC_MELEE_ABILITY.
 static func get_ability(unit: Unit, ability_index: int) -> Dictionary:
-	if unit == null or ability_index < 0 or ability_index > 3:
-		return {"physical": 0, "magic": 0, "hit_chance": 1.0}
-	var class_key: String = unit.scene_file_path.get_file().get_basename() if not unit.scene_file_path.is_empty() else ""
-	var arr: Array = Unit._ABILITIES.get(class_key, Unit._ABILITIES_ENEMY) if class_key in Unit._ABILITIES else Unit._ABILITIES_ENEMY
-	return arr[clampi(ability_index, 0, arr.size() - 1)]
+	if unit == null or ability_index < 0:
+		return Unit.BASIC_MELEE_ABILITY
+	var all_abilities: Array[Dictionary] = Unit.get_all_abilities(unit)
+	if all_abilities.is_empty():
+		return Unit.BASIC_MELEE_ABILITY
+	return all_abilities[clampi(ability_index, 0, all_abilities.size() - 1)]
 
 func _get_visual_meshes() -> Array[MeshInstance3D]:
 	var list: Array[MeshInstance3D] = []
@@ -128,6 +161,7 @@ func _ready() -> void:
 	else:
 		_base_color = color
 	selection_ring.visible = false
+	_setup_weapon_slots()
 	var ap: AnimationPlayer = _get_anim_ap()
 	if ap:
 		ap.animation_finished.connect(_on_animation_finished)
@@ -234,6 +268,201 @@ func set_selected(selected: bool) -> void:
 
 func _get_anim_ap() -> AnimationPlayer:
 	return visual.get_node_or_null("AnimationPlayer") as AnimationPlayer
+
+
+# ── WEAPON ATTACHMENT ─────────────────────────────────────
+
+## Busca el Skeleton3D dentro del árbol de nodos (recursivo).
+func _find_skeleton_recursive(node: Node) -> Skeleton3D:
+	if node is Skeleton3D:
+		return node as Skeleton3D
+	for c in node.get_children():
+		var found := _find_skeleton_recursive(c)
+		if found:
+			return found
+	return null
+
+
+## Crea los BoneAttachment3D en handslot.r y handslot.l del esqueleto.
+## Llamado desde _ready(), después de que el GLB ya está instanciado.
+func _setup_weapon_slots() -> void:
+	_skeleton = _find_skeleton_recursive(visual)
+	if not _skeleton:
+		return
+
+	var bone_r := _skeleton.find_bone("handslot.r")
+	var bone_l := _skeleton.find_bone("handslot.l")
+
+	if bone_r >= 0:
+		_weapon_attachment_r = BoneAttachment3D.new()
+		_weapon_attachment_r.bone_name = "handslot.r"
+		_skeleton.add_child(_weapon_attachment_r)
+
+	if bone_l >= 0:
+		_weapon_attachment_l = BoneAttachment3D.new()
+		_weapon_attachment_l.bone_name = "handslot.l"
+		_skeleton.add_child(_weapon_attachment_l)
+
+
+## Equipa un arma en el slot indicado. weapon_scene_path vacío = desequipar.
+func equip_weapon(slot: WeaponSlot, weapon_scene_path: String, offset_pos: Vector3 = Vector3.ZERO, offset_rot: Vector3 = Vector3.ZERO) -> void:
+	var attachment: BoneAttachment3D
+	if slot == WeaponSlot.RIGHT_HAND:
+		attachment = _weapon_attachment_r
+		if _equipped_weapon_r:
+			_equipped_weapon_r.queue_free()
+			_equipped_weapon_r = null
+	else:
+		attachment = _weapon_attachment_l
+		if _equipped_weapon_l:
+			_equipped_weapon_l.queue_free()
+			_equipped_weapon_l = null
+
+	if not attachment:
+		push_warning("Unit %s: no weapon attachment for slot %d" % [display_name, slot])
+		return
+
+	if weapon_scene_path.is_empty():
+		return  # Desequipar (ya se hizo queue_free arriba)
+
+	if not ResourceLoader.exists(weapon_scene_path):
+		push_error("Unit: arma no encontrada: %s" % weapon_scene_path)
+		return
+
+	var scene: PackedScene = load(weapon_scene_path) as PackedScene
+	if not scene:
+		push_error("Unit: no se pudo cargar arma %s" % weapon_scene_path)
+		return
+
+	var weapon_inst: Node3D = scene.instantiate() as Node3D
+	if not weapon_inst:
+		push_error("Unit: instancia de arma no es Node3D: %s" % weapon_scene_path)
+		return
+
+	attachment.add_child(weapon_inst)
+	weapon_inst.position = offset_pos
+	weapon_inst.rotation = offset_rot
+
+	if slot == WeaponSlot.RIGHT_HAND:
+		_equipped_weapon_r = weapon_inst
+	else:
+		_equipped_weapon_l = weapon_inst
+	print("[Unit] %s: arma equipada en %s → %s" % [display_name, "R" if slot == WeaponSlot.RIGHT_HAND else "L", weapon_scene_path.get_file()])
+
+
+## Desequipa el arma del slot indicado.
+func unequip_weapon(slot: WeaponSlot) -> void:
+	equip_weapon(slot, "")
+
+
+# ── WEAPON DATA (alto nivel) ──────────────────────────────
+
+## Suma los bonuses de stats del arma al UnitStats runtime.
+func _apply_weapon_stat_bonuses(weapon: WeaponData) -> void:
+	if not weapon or not stats:
+		return
+	stats.physical_damage += weapon.bonus_physical_damage
+	stats.magic_damage     += weapon.bonus_magic_damage
+	stats.armor            += weapon.bonus_armor
+	stats.magic_resist     += weapon.bonus_magic_resist
+	stats.speed            += weapon.bonus_speed
+	stats.evasion           = clampf(stats.evasion + weapon.bonus_evasion, 0.0, 1.0)
+	stats.crit_chance       = clampf(stats.crit_chance + weapon.bonus_crit_chance, 0.0, 1.0)
+	stats.notify_stats_changed()
+
+
+## Resta los bonuses de stats del arma del UnitStats runtime.
+func _remove_weapon_stat_bonuses(weapon: WeaponData) -> void:
+	if not weapon or not stats:
+		return
+	stats.physical_damage = maxi(0, stats.physical_damage - weapon.bonus_physical_damage)
+	stats.magic_damage     = maxi(0, stats.magic_damage - weapon.bonus_magic_damage)
+	stats.armor            = maxi(0, stats.armor - weapon.bonus_armor)
+	stats.magic_resist     = maxi(0, stats.magic_resist - weapon.bonus_magic_resist)
+	stats.speed            = maxi(0, stats.speed - weapon.bonus_speed)
+	stats.evasion           = clampf(stats.evasion - weapon.bonus_evasion, 0.0, 1.0)
+	stats.crit_chance       = clampf(stats.crit_chance - weapon.bonus_crit_chance, 0.0, 1.0)
+	stats.notify_stats_changed()
+
+
+## Equipa un WeaponData en el slot indicado (RIGHT_HAND por defecto).
+## Maneja automáticamente armas 2H (ocupan ambos slots, aplican bonuses una sola vez).
+## Para 1H: si había un arma diferente en ese slot, quita sus bonuses y pone la nueva.
+## Si venía de 2H, quita el bonus del arma 2H y libera el otro slot.
+func equip_weapon_data(weapon_data: WeaponData, slot: WeaponSlot = WeaponSlot.RIGHT_HAND) -> void:
+	if weapon_data == null:
+		unequip_weapon_data(slot)
+		return
+
+	# ── ARMA 2H: ocupa ambos slots ──────────────────────────
+	if weapon_data.slot == WeaponData.SlotMode.TWO_HANDED:
+		# Quitar bonuses de lo que había en la derecha
+		if _equipped_weapon_data_r != null:
+			_remove_weapon_stat_bonuses(_equipped_weapon_data_r)
+		# Quitar bonuses de la izquierda sólo si era un arma diferente (evita doble quita en 2H anterior)
+		if _equipped_weapon_data_l != null and _equipped_weapon_data_l != _equipped_weapon_data_r:
+			_remove_weapon_stat_bonuses(_equipped_weapon_data_l)
+		_equipped_weapon_data_r = weapon_data
+		_equipped_weapon_data_l = weapon_data  # referencia compartida → indica 2H
+		_apply_weapon_stat_bonuses(weapon_data)
+		if not weapon_data.scene_3d_path.is_empty():
+			equip_weapon(WeaponSlot.RIGHT_HAND, weapon_data.scene_3d_path, weapon_data.hand_offset_pos, weapon_data.hand_offset_rot)
+		unequip_weapon(WeaponSlot.LEFT_HAND)
+		print("[Unit] %s: equipó WeaponData 2H '%s'" % [display_name, weapon_data.display_name])
+		return
+
+	# ── ARMA 1H: sólo ocupa el slot indicado ────────────────
+	var old_in_slot: WeaponData = _equipped_weapon_data_r if slot == WeaponSlot.RIGHT_HAND else _equipped_weapon_data_l
+	var other_slot_weapon: WeaponData = _equipped_weapon_data_l if slot == WeaponSlot.RIGHT_HAND else _equipped_weapon_data_r
+
+	if old_in_slot != null:
+		if old_in_slot == other_slot_weapon:
+			# Venía de 2H: quitar bonuses una sola vez y liberar el otro slot
+			_remove_weapon_stat_bonuses(old_in_slot)
+			if slot == WeaponSlot.RIGHT_HAND:
+				_equipped_weapon_data_l = null
+			else:
+				_equipped_weapon_data_r = null
+		else:
+			# Arma 1H normal en ese slot
+			_remove_weapon_stat_bonuses(old_in_slot)
+
+	if slot == WeaponSlot.RIGHT_HAND:
+		_equipped_weapon_data_r = weapon_data
+	else:
+		_equipped_weapon_data_l = weapon_data
+
+	_apply_weapon_stat_bonuses(weapon_data)
+	if not weapon_data.scene_3d_path.is_empty():
+		equip_weapon(slot, weapon_data.scene_3d_path, weapon_data.hand_offset_pos, weapon_data.hand_offset_rot)
+	print("[Unit] %s: equipó WeaponData 1H '%s' en %s" % [display_name, weapon_data.display_name,
+		"derecha" if slot == WeaponSlot.RIGHT_HAND else "izquierda"])
+
+
+## Desequipa el arma del slot indicado (RIGHT_HAND por defecto).
+## Si es un arma 2H, libera ambos slots y quita el bonus una sola vez.
+func unequip_weapon_data(slot: WeaponSlot = WeaponSlot.RIGHT_HAND) -> void:
+	var weapon: WeaponData = _equipped_weapon_data_r if slot == WeaponSlot.RIGHT_HAND else _equipped_weapon_data_l
+	if weapon == null:
+		return
+	if weapon.slot == WeaponData.SlotMode.TWO_HANDED:
+		# 2H: quitar bonuses una vez, limpiar ambos slots y visuales
+		_remove_weapon_stat_bonuses(weapon)
+		_equipped_weapon_data_r = null
+		_equipped_weapon_data_l = null
+		unequip_weapon(WeaponSlot.RIGHT_HAND)
+		unequip_weapon(WeaponSlot.LEFT_HAND)
+	else:
+		_remove_weapon_stat_bonuses(weapon)
+		if slot == WeaponSlot.RIGHT_HAND:
+			_equipped_weapon_data_r = null
+		else:
+			_equipped_weapon_data_l = null
+		unequip_weapon(slot)
+	print("[Unit] %s: desequipó arma de %s" % [display_name,
+		"derecha (2H)" if weapon.slot == WeaponData.SlotMode.TWO_HANDED else
+		("derecha" if slot == WeaponSlot.RIGHT_HAND else "izquierda")])
+
 
 ## Carga un GLB de rig (p. ej. Rig_Medium_General), reasigna las pistas al nodo bajo Visual
 ## y registra las animaciones en nuestro AnimationPlayer. anim_map: nombre_local -> nombre_en_glb.
@@ -476,6 +705,9 @@ func attack_target(target: Unit, ability_index: int = 0) -> void:
 	set_animation_state(AnimState.NONE)
 	set_selected(false)
 
+	# Guardar el último enemigo atacado (para facing post-movimiento)
+	_last_attacked_unit = target
+
 	var ab: Dictionary = Unit.get_ability(self, ability_index)
 	var is_melee: bool = ab.get("range", 99) <= 1
 	var start_pos := global_position
@@ -517,11 +749,24 @@ func _resolve_attack_damage(target: Unit, ability_index: int) -> void:
 	if not stats or not target.stats:
 		return
 	var ab: Dictionary = Unit.get_ability(self, ability_index)
+	# Bloqueo activo: anula el golpe y consume el bloqueo
+	if target._blocking:
+		target._blocking = false
+		target.show_floating_text("¡Bloqueado!", Color(0.3, 0.7, 1.0))
+		# Registrar: atacante falló (bloqueado), defensor bloqueó
+		stats.battle_misses += 1
+		target.stats.battle_blocks += 1
+		return
 	if randf() < target.stats.evasion:
 		target.show_floating_text("Esquive", Color.YELLOW)
+		# Registrar: atacante falló (esquivado), defensor esquivó
+		stats.battle_misses += 1
+		target.stats.battle_evades += 1
 		return
 	if randf() > ab.get("hit_chance", 1.0):
 		target.show_floating_text("Falló", Color(0.55, 0.55, 0.55))
+		# Registrar: atacante falló
+		stats.battle_misses += 1
 		return
 	var crit_mult: float = 2.0 if randf() < stats.crit_chance else 1.0
 	var phys: int = int((stats.physical_damage + ab.get("physical", 0)) * crit_mult)
@@ -530,6 +775,18 @@ func _resolve_attack_damage(target: Unit, ability_index: int) -> void:
 	var magic_taken: int = max(0, mag - target.stats.magic_resist)
 	var phys_blocked: int = phys - phys_taken
 	var magic_blocked: int = mag - magic_taken
+	var total_dealt: int = phys_taken + magic_taken
+
+	# Registrar estadísticas acumuladas del atacante
+	stats.battle_hits += 1
+	stats.battle_damage_dealt += total_dealt
+	if crit_mult >= 2.0:
+		stats.battle_crits += 1
+	# Registrar estadísticas del defensor
+	target.stats.battle_damage_taken += total_dealt
+	# Kill: se registrará si muere por este golpe
+	if target.stats.hp - total_dealt <= 0:
+		stats.battle_kills += 1
 
 	var v_offset: float = 0.0
 	var line_height: float = 0.4
@@ -557,13 +814,11 @@ func _resolve_attack_damage(target: Unit, ability_index: int) -> void:
 	target.take_damage_split(phys_taken, magic_taken)
 
 ## Muestra un popup flotante sobre la unidad (esquive, daño, bloqueos, etc.).
-## delay_sec: segundos antes de mostrar este popup (evita que se superpongan).
-## DESACTIVADO temporalmente para testear FloatingHUD (barra de vida 3D).
+## delay_sec: segundos antes de mostrar este popup (para escalonar múltiples popups).
 func show_floating_text(text: String, text_color: Color, vertical_offset: float = 0.0, delay_sec: float = 0.0) -> void:
-	return  # DESACTIVADO: texto flotante deshabilitado mientras se testea FloatingHUD
 	if delay_sec > 0.0:
-		var timer: SceneTreeTimer = get_tree().create_timer(delay_sec)
-		timer.timeout.connect(_spawn_one_floating_text.bind(text, text_color, vertical_offset))
+		await get_tree().create_timer(delay_sec).timeout
+	if not is_instance_valid(self):
 		return
 	_spawn_one_floating_text(text, text_color, vertical_offset)
 
@@ -596,18 +851,18 @@ func _spawn_one_floating_text(text: String, text_color: Color, vertical_offset: 
 	t.set_parallel(false)
 	t.tween_callback(label.queue_free)
 
-## Reproduce la animación de ataque correspondiente al ability_index.
-## Busca en _attack_anim_for_ability; fallback a "attack" (Interact genérico).
+## Reproduce la animación de ataque para el ability_index.
+## Lee anim_name de la habilidad del arma equipada; fallback a "attack" (Interact genérico).
 func _play_attack_animation(ability_index: int = 0) -> void:
 	var ap: AnimationPlayer = _get_anim_ap()
 	if not ap:
 		await _fallback_attack_tween()
 		return
 
-	# Buscar animación específica para esta habilidad
-	var anim_name: String = _attack_anim_for_ability.get(ability_index, "attack")
+	var ab: Dictionary = Unit.get_ability(self, ability_index)
+	var anim_name: String = ab.get("anim_name", "attack")
 	if not ap.has_animation(anim_name):
-		anim_name = "attack"  # Fallback a genérico (Interact)
+		anim_name = "attack"
 
 	if ap.has_animation(anim_name):
 		_stop_idle()
@@ -629,3 +884,19 @@ func _fallback_attack_tween() -> void:
 			t.parallel().tween_property(m, "albedo_color", _base_color.lightened(0.25), 0.10)
 			t.parallel().tween_property(m, "albedo_color", _base_color, 0.20)
 	await t.finished
+
+
+## Devuelve el objetivo al que mirar tras moverse:
+## el último atacado si sigue vivo, sino el enemigo más cercano de la lista.
+func get_facing_target_after_move(opponents: Array) -> Unit:
+	if _last_attacked_unit and is_instance_valid(_last_attacked_unit) and _last_attacked_unit.alive:
+		return _last_attacked_unit
+	var nearest: Unit = null
+	var min_dist: float = INF
+	for u in opponents:
+		if u is Unit and (u as Unit).alive:
+			var d: float = global_position.distance_squared_to((u as Unit).global_position)
+			if d < min_dist:
+				min_dist = d
+				nearest = u as Unit
+	return nearest

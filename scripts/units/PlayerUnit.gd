@@ -11,6 +11,9 @@ const ADVENTURER_ANIMS := {
 	"attack": "Interact"
 }
 
+# ── Armas del pack KayKit Adventurers ──────────────────────
+const _ADV_WEAPONS := "res://assets/KayKit_Adventurers_2.0_FREE/Assets/gltf/"
+
 # ── KayKit Character Animations 1.1 ──────────────────────
 const _CHAR_ANIM_BASE := "res://assets/KayKit_Character_Animations_1.1/Animations/gltf/Rig_Medium/"
 const COMBAT_MELEE_GLB := _CHAR_ANIM_BASE + "Rig_Medium_CombatMelee.glb"
@@ -53,7 +56,70 @@ func _ready() -> void:
 	_setup_walk_animation()
 	_setup_combat_animations()
 	super._ready()
+	inventory = Inventory.new()
+	_equip_default_weapon()
+	_populate_default_inventory()
 	set_animation_state(AnimState.SPAWN)
+
+
+## Detecta el nombre del rig activo (clase del personaje) desde los hijos de Visual.
+func _detect_rig_name() -> String:
+	for c in visual.get_children():
+		if not c is AnimationPlayer:
+			return c.name
+	return ""
+
+
+## Equipa arma por defecto según la clase del personaje usando WeaponData resources.
+func _equip_default_weapon() -> void:
+	var rig_name := _detect_rig_name()
+	var weapon_path := ""
+	match rig_name:
+		"Knight":
+			weapon_path = "res://data/weapons/player_sword.tres"
+			# El Knight empieza con escudo en mano izquierda (WeaponData real, no cosmético)
+			var shield_path := "res://data/weapons/player_shield.tres"
+			if ResourceLoader.exists(shield_path):
+				var shield: WeaponData = load(shield_path) as WeaponData
+				if shield:
+					inventory.equipped_left = shield
+					inventory.add_weapon(shield)
+					equip_weapon_data(shield, WeaponSlot.LEFT_HAND)
+		"Barbarian":
+			weapon_path = "res://data/weapons/player_axe_2h.tres"
+		"Mage":
+			weapon_path = "res://data/weapons/player_staff.tres"
+			# El libro de hechizos sigue siendo cosmético (no es arma del sistema)
+			equip_weapon(WeaponSlot.LEFT_HAND, _ADV_WEAPONS + "spellbook_open.gltf")
+		"Ranger":
+			weapon_path = "res://data/weapons/player_bow.tres"
+		"Rogue", "Rogue_Hooded":
+			weapon_path = "res://data/weapons/player_dagger.tres"
+		_:
+			weapon_path = "res://data/weapons/player_sword.tres"
+	if ResourceLoader.exists(weapon_path):
+		var weapon: WeaponData = load(weapon_path) as WeaponData
+		if weapon:
+			inventory.equipped_right = weapon
+			inventory.add_weapon(weapon)
+			equip_weapon_data(weapon)
+
+
+## Rellena el inventario con TODAS las armas disponibles del juego (para pruebas).
+func _populate_default_inventory() -> void:
+	var all_weapon_paths: Array[String] = [
+		"res://data/weapons/player_sword.tres",
+		"res://data/weapons/player_bow.tres",
+		"res://data/weapons/player_staff.tres",
+		"res://data/weapons/player_axe_2h.tres",
+		"res://data/weapons/player_dagger.tres",
+		"res://data/weapons/player_shield.tres",
+	]
+	for path in all_weapon_paths:
+		if ResourceLoader.exists(path):
+			var w: WeaponData = load(path) as WeaponData
+			if w and not inventory.weapons.has(w):
+				inventory.add_weapon(w)
 
 
 ## Carga animaciones de combate del pack KayKit Character Animations 1.1.
@@ -64,15 +130,7 @@ func _setup_combat_animations() -> void:
 		_setup_rig_animations(COMBAT_RANGED_GLB, RANGED_ANIMS)
 	if ResourceLoader.exists(MOVEMENT_ADV_GLB):
 		_setup_rig_animations(MOVEMENT_ADV_GLB, ADV_MOVE_ANIMS)
-
-	# Mapeo ability_index → animación de ataque
-	# Abilities 0,1 = distancia (range 99), Abilities 2,3 = melee (range 1)
-	_attack_anim_for_ability = {
-		0: "ranged_1h_shoot",       # Ataque a distancia débil
-		1: "ranged_magic_shoot",    # Ataque a distancia fuerte
-		2: "melee_1h_chop",         # Ataque melee débil
-		3: "melee_2h_spin",         # Ataque melee fuerte
-	}
+	# Las animaciones de ataque ahora vienen del anim_name en WeaponData.abilities
 
 
 ## Carga la animación de caminar desde Rig_Medium_MovementBasic.glb.

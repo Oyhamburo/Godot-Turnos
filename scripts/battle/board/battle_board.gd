@@ -225,12 +225,40 @@ func highlight_tiles(coords: Array[Vector2i]) -> void:
 			tile.set_highlighted(true)
 
 
-## Limpia el highlight de todos los tiles del tablero.
+## Resalta en rojo tenue los tiles walkables vacíos que NO están en valid_coords (fuera del rango de movimiento).
+## Excluye tiles ocupados por unidades y tiles bloqueados.
+func highlight_unreachable_tiles(valid_coords: Array[Vector2i]) -> void:
+	for coord in tiles:
+		if coord in valid_coords:
+			continue
+		var tile: Tile = tiles[coord]
+		if not tile or not tile.walkable or tile.occupied_by != null:
+			continue
+		tile.set_blocked_range_highlight(true)
+
+
+## Resalta en naranja los tiles dentro del rango de ataque desde el origen.
+## atk_range == 0 (Defender/self): no resalta nada.
+## atk_range == 99 (ranged): resalta todo el tablero excepto el atacante.
+func highlight_attack_range(origin: Vector2i, atk_range: int) -> void:
+	if atk_range <= 0:
+		return
+	for coord in tiles:
+		var dist: int = get_tile_distance(coord, origin)
+		if dist > 0 and dist <= atk_range:
+			var tile: Tile = get_tile_at(coord)
+			if tile:
+				tile.set_attack_range_highlight(true)
+
+
+## Limpia el highlight de todos los tiles del tablero (verde, rojo, naranja y hover).
 func clear_all_highlights() -> void:
 	for tile in tiles.values():
 		if tile is Tile:
 			tile.set_highlighted(false)
 			tile.set_hover_highlighted(false)
+			tile.set_blocked_range_highlight(false)
+			tile.set_attack_range_highlight(false)
 
 
 ## Busca las coordenadas del tile que ocupa una unidad.

@@ -1,0 +1,20 @@
+[gd_resource type="Resource" script_class="WeaponData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/data/WeaponData.gd" id="1_script"]
+
+[resource]
+script = ExtResource("1_script")
+display_name = "Arco"
+weapon_type = 1
+slot = 2
+scene_3d_path = "res://assets/KayKit_Adventurers_2.0_FREE/Assets/gltf/bow_withString.gltf"
+hand_offset_pos = Vector3(0, 0, 0)
+hand_offset_rot = Vector3(0, 0, 0)
+bonus_physical_damage = 4
+bonus_magic_damage = 0
+bonus_armor = 0
+bonus_magic_resist = 0
+bonus_speed = 1
+bonus_evasion = 0.0
+bonus_crit_chance = 0.05
+abilities = [{"display_name": "Flecha", "physical": 8, "magic": 0, "hit_chance": 0.88, "range": 99, "anim_name": "ranged_bow_draw"}, {"display_name": "Flecha Certera", "physical": 14, "magic": 0, "hit_chance": 0.75, "range": 99, "anim_name": "ranged_bow_release"}]

@@ -58,7 +58,12 @@ const ENEMY_MELEE_ANIMS := {
 const ENEMY_RANGED_ANIMS := {
 	"ranged_magic_shoot": "Ranged_Magic_Shoot",
 	"ranged_1h_shoot": "Ranged_1H_Shoot",
+	"ranged_bow_draw": "Ranged_Bow_Draw",
+	"ranged_bow_release": "Ranged_Bow_Release",
 }
+
+# ── Armas del pack KayKit Skeletons ──────────────────────
+const _SKEL_WEAPONS := "res://assets/KayKit_Skeletons_1.1_FREE/assets/gltf/"
 
 
 func _ready() -> void:
@@ -70,7 +75,39 @@ func _ready() -> void:
 	_setup_walk_animation()
 	_setup_combat_animations()
 	super._ready()
+	_equip_default_weapon()
 	set_animation_state(AnimState.SPAWN)
+
+
+## Equipa arma por defecto según la clase del enemigo (detectada por nombre del GLB bajo Visual).
+func _equip_default_weapon() -> void:
+	var rig_name := ""
+	for c in visual.get_children():
+		if not c is AnimationPlayer:
+			rig_name = c.name
+			break
+	var weapon_path := ""
+	match rig_name:
+		"Skeleton_Warrior":
+			weapon_path = "res://data/weapons/skeleton_blade.tres"
+			# Escudo real con WeaponData: añade armadura y la habilidad Defender
+			var shield_path := "res://data/weapons/skeleton_shield.tres"
+			if ResourceLoader.exists(shield_path):
+				var shield: WeaponData = load(shield_path) as WeaponData
+				if shield:
+					equip_weapon_data(shield, WeaponSlot.LEFT_HAND)
+		"Skeleton_Rogue":
+			weapon_path = "res://data/weapons/skeleton_bow.tres"
+		"Skeleton_Mage":
+			weapon_path = "res://data/weapons/skeleton_staff.tres"
+		"Skeleton_Minion":
+			weapon_path = "res://data/weapons/skeleton_axe.tres"
+		_:
+			weapon_path = "res://data/weapons/skeleton_blade.tres"
+	if ResourceLoader.exists(weapon_path):
+		var weapon: WeaponData = load(weapon_path) as WeaponData
+		if weapon:
+			equip_weapon_data(weapon)
 
 
 ## Carga animaciones de combate del pack KayKit Character Animations 1.1.
@@ -79,15 +116,7 @@ func _setup_combat_animations() -> void:
 		_setup_rig_animations(COMBAT_MELEE_GLB, ENEMY_MELEE_ANIMS)
 	if ResourceLoader.exists(COMBAT_RANGED_GLB):
 		_setup_rig_animations(COMBAT_RANGED_GLB, ENEMY_RANGED_ANIMS)
-
-	# Mapeo ability_index → animación de ataque
-	# Abilities 0,1 = distancia (range 99), Abilities 2,3 = melee (range 1)
-	_attack_anim_for_ability = {
-		0: "ranged_1h_shoot",       # Ataque a distancia débil
-		1: "ranged_magic_shoot",    # Ataque a distancia fuerte
-		2: "melee_1h_stab",         # Ataque melee débil
-		3: "melee_1h_chop",         # Ataque melee fuerte
-	}
+	# Las animaciones de ataque ahora vienen del anim_name en WeaponData.abilities
 
 
 ## Carga la animación de caminar desde Rig_Medium_MovementBasic.glb.

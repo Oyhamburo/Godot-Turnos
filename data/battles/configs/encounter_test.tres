@@ -1,0 +1,19 @@
+[gd_resource type="Resource" script_class="BattleEncounterConfig" load_steps=7 format=3 uid="uid://qfc4lr6xs6vw"]
+
+[ext_resource type="Script" uid="uid://cp3dsmpsi56md" path="res://scripts/battle/data/unit_spawn.gd" id="1_fq7ov"]
+[ext_resource type="Resource" path="res://data/battles/configs/unit_spawn_enemy_zone.tres" id="2_yuvxa"]
+[ext_resource type="Script" uid="uid://e35aku6x6yom" path="res://scripts/battle/data/tile_override.gd" id="3_g0sks"]
+[ext_resource type="Script" uid="uid://cqlc3nrvd2uwe" path="res://scripts/battle/data/floor_weight_entry.gd" id="4_7jlus"]
+[ext_resource type="Resource" path="res://data/battles/configs/unit_spawn_player_zone.tres" id="5_jpefb"]
+[ext_resource type="Script" uid="uid://cjwykwqwou5ow" path="res://scripts/battle/data/battle_encounter_config.gd" id="6_hrwww"]
+
+[resource]
+script = ExtResource("6_hrwww")
+width = 2
+height = 2
+obstacle_mode = "random"
+obstacle_density = 0.109
+players = Array[ExtResource("1_fq7ov")]([ExtResource("5_jpefb")])
+enemies = Array[ExtResource("1_fq7ov")]([ExtResource("2_yuvxa")])
+facing_mode = "fixed"
+fixed_facing_dir = Vector3(2, 2, 1)
