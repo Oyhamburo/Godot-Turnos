@@ -1,0 +1,17 @@
+[gd_resource type="Resource" script_class="UnitStatsTemplate" load_steps=2 format=3 uid="uid://unit_template_rogue"]
+
+[ext_resource type="Script" path="res://scripts/unit/stats/unit_stats_template.gd" id="1_script"]
+
+[resource]
+script = ExtResource("1_script")
+display_name = "Pícaro"
+team = 0
+max_hp = 32
+max_mana = 0
+speed = 12
+armor = 2
+magic_resist = 1
+physical_damage = 9
+magic_damage = 0
+evasion = 0.15
+crit_chance = 0.18

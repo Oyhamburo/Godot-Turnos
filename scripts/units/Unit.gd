@@ -1,6 +1,10 @@
 extends CharacterBody3D
 class_name Unit
 
+const _UnitStats = preload("res://scripts/unit/stats/unit_stats.gd")
+const _UnitStatsTemplate = preload("res://scripts/unit/stats/unit_stats_template.gd")
+const _FloatingHUDScene = preload("res://scenes/ui/FloatingHUD.tscn")
+
 signal hp_changed(unit: Unit)
 signal died(unit: Unit)
 
@@ -13,26 +17,18 @@ enum AnimState {
 	SPAWN,
 	HIT,
 	DEATH,
-	ATTACK
+	ATTACK,
+	WALK
 }
 
 @export var data: UnitData
 @export var display_name: String = "Unit"
 @export_enum("PLAYER", "ENEMY") var team: int = 0
-@export var max_hp: int = 30
-@export var hp: int = 30
-@export var speed: int = 10
-@export var attack: int = 8
 @export var stop_distance: float = 1.35
 @export var color: Color = Color.WHITE
 
-# Estadísticas de combate (daño físico/mágico, defensas, crítico, esquivar)
-@export var physical_damage: int = 8
-@export var magic_damage: int = 0
-@export var armor: int = 0
-@export var magic_resist: int = 0
-@export_range(0.0, 1.0) var crit_chance: float = 0.05
-@export_range(0.0, 1.0) var dodge_chance: float = 0.05
+## Stats runtime; se crea desde stats_template o desde data.
+var stats: UnitStats
 
 @onready var visual: Node3D = $Visual
 @onready var selection_ring: MeshInstance3D = $SelectionRing
@@ -49,23 +45,62 @@ var _mesh_materials: Array[Material] = []
 var _use_unit_color: bool = true  # false cuando usamos material del GLB (conservar textura)
 var _anim_state: AnimState = AnimState.NONE
 
-# Habilidades por clase: [ { physical, magic, hit_chance }, ... ] (4 por clase). Más daño = menos hit_chance.
-const _ABILITIES: Dictionary = {
-	"PlayerKnight": [ {"physical": 4, "magic": 0, "hit_chance": 0.95}, {"physical": 8, "magic": 0, "hit_chance": 0.88}, {"physical": 14, "magic": 0, "hit_chance": 0.78}, {"physical": 22, "magic": 0, "hit_chance": 0.60} ],
-	"PlayerMage": [ {"physical": 0, "magic": 4, "hit_chance": 0.95}, {"physical": 0, "magic": 9, "hit_chance": 0.88}, {"physical": 0, "magic": 15, "hit_chance": 0.75}, {"physical": 0, "magic": 24, "hit_chance": 0.58} ],
-	"PlayerRanger": [ {"physical": 3, "magic": 0, "hit_chance": 0.94}, {"physical": 6, "magic": 3, "hit_chance": 0.86}, {"physical": 10, "magic": 6, "hit_chance": 0.76}, {"physical": 14, "magic": 10, "hit_chance": 0.62} ],
-	"PlayerRogue": [ {"physical": 3, "magic": 0, "hit_chance": 0.96}, {"physical": 7, "magic": 0, "hit_chance": 0.88}, {"physical": 12, "magic": 0, "hit_chance": 0.75}, {"physical": 18, "magic": 0, "hit_chance": 0.58} ],
-	"PlayerBarbarian": [ {"physical": 5, "magic": 0, "hit_chance": 0.92}, {"physical": 11, "magic": 0, "hit_chance": 0.82}, {"physical": 18, "magic": 0, "hit_chance": 0.68}, {"physical": 26, "magic": 0, "hit_chance": 0.52} ],
-	"PlayerRogueHooded": [ {"physical": 3, "magic": 0, "hit_chance": 0.96}, {"physical": 7, "magic": 0, "hit_chance": 0.88}, {"physical": 12, "magic": 0, "hit_chance": 0.75}, {"physical": 18, "magic": 0, "hit_chance": 0.58} ],
-}
-const _ABILITIES_ENEMY: Array = [ {"physical": 2, "magic": 0, "hit_chance": 0.93}, {"physical": 5, "magic": 0, "hit_chance": 0.85}, {"physical": 9, "magic": 0, "hit_chance": 0.74}, {"physical": 14, "magic": 0, "hit_chance": 0.60} ]
+## Sistema de armas — BoneAttachment3D en handslot.r / handslot.l del Skeleton3D.
+enum WeaponSlot { RIGHT_HAND, LEFT_HAND }
+var _skeleton: Skeleton3D = null
+var _weapon_attachment_r: BoneAttachment3D = null
+var _weapon_attachment_l: BoneAttachment3D = null
+var _equipped_weapon_r: Node3D = null
+var _equipped_weapon_l: Node3D = null
 
+## WeaponData equipado en mano derecha (o arma 2H); null = vacío.
+var _equipped_weapon_data_r: WeaponData = null
+## WeaponData equipado en mano izquierda; null = vacío. Igual a _r si es 2H.
+var _equipped_weapon_data_l: WeaponData = null
+
+## Inventario del jugador (null en enemigos).
+var inventory: Inventory = null
+
+## true cuando la unidad usó "Defender" este turno: anula el siguiente golpe recibido.
+var _blocking: bool = false
+
+## Último enemigo atacado por esta unidad (para orientarse al terminar de moverse).
+var _last_attacked_unit: Unit = null
+
+## Habilidad básica de golpe: disponible siempre que no haya arma equipada.
+const BASIC_MELEE_ABILITY: Dictionary = {
+	"display_name": "Golpe Básico",
+	"physical": 3,
+	"magic": 0,
+	"hit_chance": 0.90,
+	"range": 1,
+	"anim_name": "melee_punch"
+}
+
+## Devuelve todas las habilidades combinadas de ambas manos equipadas.
+## Si ninguna mano tiene arma, devuelve array vacío (get_ability() devolverá BASIC_MELEE_ABILITY).
+static func get_all_abilities(unit: Unit) -> Array[Dictionary]:
+	var result: Array[Dictionary] = []
+	if unit == null:
+		return result
+	var wr: WeaponData = unit._equipped_weapon_data_r
+	var wl: WeaponData = unit._equipped_weapon_data_l
+	if wr != null and not wr.abilities.is_empty():
+		result.append_array(wr.abilities)
+	# Incluir mano izquierda sólo si es un arma distinta (evita duplicar bonuses de 2H)
+	if wl != null and wl != wr and not wl.abilities.is_empty():
+		result.append_array(wl.abilities)
+	return result
+
+## Devuelve la habilidad en ability_index combinando ambas manos.
+## Si no hay arma en ninguna mano, devuelve BASIC_MELEE_ABILITY.
 static func get_ability(unit: Unit, ability_index: int) -> Dictionary:
-	if unit == null or ability_index < 0 or ability_index > 3:
-		return {"physical": 0, "magic": 0, "hit_chance": 1.0}
-	var class_key: String = unit.scene_file_path.get_file().get_basename() if not unit.scene_file_path.is_empty() else ""
-	var arr: Array = Unit._ABILITIES.get(class_key, Unit._ABILITIES_ENEMY) if class_key in Unit._ABILITIES else Unit._ABILITIES_ENEMY
-	return arr[clampi(ability_index, 0, arr.size() - 1)]
+	if unit == null or ability_index < 0:
+		return Unit.BASIC_MELEE_ABILITY
+	var all_abilities: Array[Dictionary] = Unit.get_all_abilities(unit)
+	if all_abilities.is_empty():
+		return Unit.BASIC_MELEE_ABILITY
+	return all_abilities[clampi(ability_index, 0, all_abilities.size() - 1)]
 
 func _get_visual_meshes() -> Array[MeshInstance3D]:
 	var list: Array[MeshInstance3D] = []
@@ -88,6 +123,10 @@ func _get_mesh_surface_material(mi: MeshInstance3D) -> Material:
 func _ready() -> void:
 	if data:
 		_apply_data()
+	else:
+		_create_default_stats()
+	_ensure_stats()
+	add_floating_hud()
 	_start_position = global_position
 	_start_rotation = global_rotation
 
@@ -122,6 +161,7 @@ func _ready() -> void:
 	else:
 		_base_color = color
 	selection_ring.visible = false
+	_setup_weapon_slots()
 	var ap: AnimationPlayer = _get_anim_ap()
 	if ap:
 		ap.animation_finished.connect(_on_animation_finished)
@@ -139,18 +179,74 @@ func _physics_process(delta: float) -> void:
 func _apply_data() -> void:
 	display_name = data.display_name
 	team = data.team
-	max_hp = data.max_hp
-	hp = data.max_hp
-	speed = data.speed
-	attack = data.attack
 	stop_distance = data.stop_distance
 	color = data.color
-	physical_damage = data.physical_damage if data.physical_damage > 0 else data.attack
-	magic_damage = data.magic_damage
-	armor = data.armor
-	magic_resist = data.magic_resist
-	crit_chance = data.crit_chance
-	dodge_chance = data.dodge_chance
+	var t: UnitStatsTemplate
+	if data.stats_template:
+		t = data.stats_template
+	else:
+		t = _build_template_from_data()
+	stats = _UnitStats.from_template(t)
+	if stats and stats.template:
+		display_name = stats.template.display_name
+		team = stats.template.team
+
+
+func _build_template_from_data() -> UnitStatsTemplate:
+	var t := _UnitStatsTemplate.new()
+	t.display_name = data.display_name
+	t.team = data.team
+	t.max_hp = data.max_hp
+	t.max_mana = 0
+	t.speed = data.speed
+	t.armor = data.armor
+	t.magic_resist = data.magic_resist
+	t.physical_damage = data.physical_damage if data.physical_damage > 0 else data.attack
+	t.magic_damage = data.magic_damage
+	t.evasion = data.dodge_chance
+	t.crit_chance = data.crit_chance
+	return t
+
+
+func _create_default_stats() -> void:
+	var t := _UnitStatsTemplate.new()
+	t.display_name = display_name
+	t.team = team
+	t.max_hp = 30
+	t.max_mana = 0
+	t.speed = 10
+	t.armor = 0
+	t.magic_resist = 0
+	t.physical_damage = 8
+	t.magic_damage = 0
+	t.evasion = 0.05
+	t.crit_chance = 0.05
+	stats = _UnitStats.from_template(t)
+
+
+func _ensure_stats() -> void:
+	if not stats:
+		_create_default_stats()
+
+
+func add_floating_hud() -> void:
+	if not stats:
+		print("[Unit] %s: add_floating_hud - stats es null!" % display_name)
+		return
+	var hud: Node3D = _FloatingHUDScene.instantiate()
+	add_child(hud)
+	hud.position = Vector3(0.0, 1.85, 0.0)
+	if hud is FloatingHUD:
+		hud.setup(stats, display_name, team)
+		stats.hp_changed.connect(_on_stats_hp_changed)
+		print("[Unit] %s: FloatingHUD creado - HP %d/%d - team: %d - pos: %s" % [display_name, stats.hp, stats.max_hp, team, hud.position])
+	else:
+		print("[Unit] %s: hud instanciado pero no es FloatingHUD!" % display_name)
+
+
+func _on_stats_hp_changed(_current: int, _max_val: int) -> void:
+	print("[Unit] %s: hp_changed -> %d/%d" % [display_name, _current, _max_val])
+	emit_signal("hp_changed", self)
 
 func refresh_visual_color() -> void:
 	if not _use_unit_color:
@@ -172,6 +268,201 @@ func set_selected(selected: bool) -> void:
 
 func _get_anim_ap() -> AnimationPlayer:
 	return visual.get_node_or_null("AnimationPlayer") as AnimationPlayer
+
+
+# ── WEAPON ATTACHMENT ─────────────────────────────────────
+
+## Busca el Skeleton3D dentro del árbol de nodos (recursivo).
+func _find_skeleton_recursive(node: Node) -> Skeleton3D:
+	if node is Skeleton3D:
+		return node as Skeleton3D
+	for c in node.get_children():
+		var found := _find_skeleton_recursive(c)
+		if found:
+			return found
+	return null
+
+
+## Crea los BoneAttachment3D en handslot.r y handslot.l del esqueleto.
+## Llamado desde _ready(), después de que el GLB ya está instanciado.
+func _setup_weapon_slots() -> void:
+	_skeleton = _find_skeleton_recursive(visual)
+	if not _skeleton:
+		return
+
+	var bone_r := _skeleton.find_bone("handslot.r")
+	var bone_l := _skeleton.find_bone("handslot.l")
+
+	if bone_r >= 0:
+		_weapon_attachment_r = BoneAttachment3D.new()
+		_weapon_attachment_r.bone_name = "handslot.r"
+		_skeleton.add_child(_weapon_attachment_r)
+
+	if bone_l >= 0:
+		_weapon_attachment_l = BoneAttachment3D.new()
+		_weapon_attachment_l.bone_name = "handslot.l"
+		_skeleton.add_child(_weapon_attachment_l)
+
+
+## Equipa un arma en el slot indicado. weapon_scene_path vacío = desequipar.
+func equip_weapon(slot: WeaponSlot, weapon_scene_path: String, offset_pos: Vector3 = Vector3.ZERO, offset_rot: Vector3 = Vector3.ZERO) -> void:
+	var attachment: BoneAttachment3D
+	if slot == WeaponSlot.RIGHT_HAND:
+		attachment = _weapon_attachment_r
+		if _equipped_weapon_r:
+			_equipped_weapon_r.queue_free()
+			_equipped_weapon_r = null
+	else:
+		attachment = _weapon_attachment_l
+		if _equipped_weapon_l:
+			_equipped_weapon_l.queue_free()
+			_equipped_weapon_l = null
+
+	if not attachment:
+		push_warning("Unit %s: no weapon attachment for slot %d" % [display_name, slot])
+		return
+
+	if weapon_scene_path.is_empty():
+		return  # Desequipar (ya se hizo queue_free arriba)
+
+	if not ResourceLoader.exists(weapon_scene_path):
+		push_error("Unit: arma no encontrada: %s" % weapon_scene_path)
+		return
+
+	var scene: PackedScene = load(weapon_scene_path) as PackedScene
+	if not scene:
+		push_error("Unit: no se pudo cargar arma %s" % weapon_scene_path)
+		return
+
+	var weapon_inst: Node3D = scene.instantiate() as Node3D
+	if not weapon_inst:
+		push_error("Unit: instancia de arma no es Node3D: %s" % weapon_scene_path)
+		return
+
+	attachment.add_child(weapon_inst)
+	weapon_inst.position = offset_pos
+	weapon_inst.rotation = offset_rot
+
+	if slot == WeaponSlot.RIGHT_HAND:
+		_equipped_weapon_r = weapon_inst
+	else:
+		_equipped_weapon_l = weapon_inst
+	print("[Unit] %s: arma equipada en %s → %s" % [display_name, "R" if slot == WeaponSlot.RIGHT_HAND else "L", weapon_scene_path.get_file()])
+
+
+## Desequipa el arma del slot indicado.
+func unequip_weapon(slot: WeaponSlot) -> void:
+	equip_weapon(slot, "")
+
+
+# ── WEAPON DATA (alto nivel) ──────────────────────────────
+
+## Suma los bonuses de stats del arma al UnitStats runtime.
+func _apply_weapon_stat_bonuses(weapon: WeaponData) -> void:
+	if not weapon or not stats:
+		return
+	stats.physical_damage += weapon.bonus_physical_damage
+	stats.magic_damage     += weapon.bonus_magic_damage
+	stats.armor            += weapon.bonus_armor
+	stats.magic_resist     += weapon.bonus_magic_resist
+	stats.speed            += weapon.bonus_speed
+	stats.evasion           = clampf(stats.evasion + weapon.bonus_evasion, 0.0, 1.0)
+	stats.crit_chance       = clampf(stats.crit_chance + weapon.bonus_crit_chance, 0.0, 1.0)
+	stats.notify_stats_changed()
+
+
+## Resta los bonuses de stats del arma del UnitStats runtime.
+func _remove_weapon_stat_bonuses(weapon: WeaponData) -> void:
+	if not weapon or not stats:
+		return
+	stats.physical_damage = maxi(0, stats.physical_damage - weapon.bonus_physical_damage)
+	stats.magic_damage     = maxi(0, stats.magic_damage - weapon.bonus_magic_damage)
+	stats.armor            = maxi(0, stats.armor - weapon.bonus_armor)
+	stats.magic_resist     = maxi(0, stats.magic_resist - weapon.bonus_magic_resist)
+	stats.speed            = maxi(0, stats.speed - weapon.bonus_speed)
+	stats.evasion           = clampf(stats.evasion - weapon.bonus_evasion, 0.0, 1.0)
+	stats.crit_chance       = clampf(stats.crit_chance - weapon.bonus_crit_chance, 0.0, 1.0)
+	stats.notify_stats_changed()
+
+
+## Equipa un WeaponData en el slot indicado (RIGHT_HAND por defecto).
+## Maneja automáticamente armas 2H (ocupan ambos slots, aplican bonuses una sola vez).
+## Para 1H: si había un arma diferente en ese slot, quita sus bonuses y pone la nueva.
+## Si venía de 2H, quita el bonus del arma 2H y libera el otro slot.
+func equip_weapon_data(weapon_data: WeaponData, slot: WeaponSlot = WeaponSlot.RIGHT_HAND) -> void:
+	if weapon_data == null:
+		unequip_weapon_data(slot)
+		return
+
+	# ── ARMA 2H: ocupa ambos slots ──────────────────────────
+	if weapon_data.slot == WeaponData.SlotMode.TWO_HANDED:
+		# Quitar bonuses de lo que había en la derecha
+		if _equipped_weapon_data_r != null:
+			_remove_weapon_stat_bonuses(_equipped_weapon_data_r)
+		# Quitar bonuses de la izquierda sólo si era un arma diferente (evita doble quita en 2H anterior)
+		if _equipped_weapon_data_l != null and _equipped_weapon_data_l != _equipped_weapon_data_r:
+			_remove_weapon_stat_bonuses(_equipped_weapon_data_l)
+		_equipped_weapon_data_r = weapon_data
+		_equipped_weapon_data_l = weapon_data  # referencia compartida → indica 2H
+		_apply_weapon_stat_bonuses(weapon_data)
+		if not weapon_data.scene_3d_path.is_empty():
+			equip_weapon(WeaponSlot.RIGHT_HAND, weapon_data.scene_3d_path, weapon_data.hand_offset_pos, weapon_data.hand_offset_rot)
+		unequip_weapon(WeaponSlot.LEFT_HAND)
+		print("[Unit] %s: equipó WeaponData 2H '%s'" % [display_name, weapon_data.display_name])
+		return
+
+	# ── ARMA 1H: sólo ocupa el slot indicado ────────────────
+	var old_in_slot: WeaponData = _equipped_weapon_data_r if slot == WeaponSlot.RIGHT_HAND else _equipped_weapon_data_l
+	var other_slot_weapon: WeaponData = _equipped_weapon_data_l if slot == WeaponSlot.RIGHT_HAND else _equipped_weapon_data_r
+
+	if old_in_slot != null:
+		if old_in_slot == other_slot_weapon:
+			# Venía de 2H: quitar bonuses una sola vez y liberar el otro slot
+			_remove_weapon_stat_bonuses(old_in_slot)
+			if slot == WeaponSlot.RIGHT_HAND:
+				_equipped_weapon_data_l = null
+			else:
+				_equipped_weapon_data_r = null
+		else:
+			# Arma 1H normal en ese slot
+			_remove_weapon_stat_bonuses(old_in_slot)
+
+	if slot == WeaponSlot.RIGHT_HAND:
+		_equipped_weapon_data_r = weapon_data
+	else:
+		_equipped_weapon_data_l = weapon_data
+
+	_apply_weapon_stat_bonuses(weapon_data)
+	if not weapon_data.scene_3d_path.is_empty():
+		equip_weapon(slot, weapon_data.scene_3d_path, weapon_data.hand_offset_pos, weapon_data.hand_offset_rot)
+	print("[Unit] %s: equipó WeaponData 1H '%s' en %s" % [display_name, weapon_data.display_name,
+		"derecha" if slot == WeaponSlot.RIGHT_HAND else "izquierda"])
+
+
+## Desequipa el arma del slot indicado (RIGHT_HAND por defecto).
+## Si es un arma 2H, libera ambos slots y quita el bonus una sola vez.
+func unequip_weapon_data(slot: WeaponSlot = WeaponSlot.RIGHT_HAND) -> void:
+	var weapon: WeaponData = _equipped_weapon_data_r if slot == WeaponSlot.RIGHT_HAND else _equipped_weapon_data_l
+	if weapon == null:
+		return
+	if weapon.slot == WeaponData.SlotMode.TWO_HANDED:
+		# 2H: quitar bonuses una vez, limpiar ambos slots y visuales
+		_remove_weapon_stat_bonuses(weapon)
+		_equipped_weapon_data_r = null
+		_equipped_weapon_data_l = null
+		unequip_weapon(WeaponSlot.RIGHT_HAND)
+		unequip_weapon(WeaponSlot.LEFT_HAND)
+	else:
+		_remove_weapon_stat_bonuses(weapon)
+		if slot == WeaponSlot.RIGHT_HAND:
+			_equipped_weapon_data_r = null
+		else:
+			_equipped_weapon_data_l = null
+		unequip_weapon(slot)
+	print("[Unit] %s: desequipó arma de %s" % [display_name,
+		"derecha (2H)" if weapon.slot == WeaponData.SlotMode.TWO_HANDED else
+		("derecha" if slot == WeaponSlot.RIGHT_HAND else "izquierda")])
+
 
 ## Carga un GLB de rig (p. ej. Rig_Medium_General), reasigna las pistas al nodo bajo Visual
 ## y registra las animaciones en nuestro AnimationPlayer. anim_map: nombre_local -> nombre_en_glb.
@@ -223,7 +514,7 @@ func _setup_rig_animations(rig_glb_path: String, anim_map: Dictionary) -> void:
 			else:
 				new_path = target_root_name + "/" + path_str
 			anim.track_set_path(i, NodePath(new_path))
-		if local_name == "idle":
+		if local_name == "idle" or local_name == "walk":
 			anim.loop_mode = Animation.LOOP_LINEAR
 		lib.add_animation(local_name, anim)
 	anim_source.queue_free()
@@ -244,9 +535,11 @@ func _anim_name_for_state(s: AnimState) -> String:
 		AnimState.HIT: return "hit"
 		AnimState.DEATH: return "death"
 		AnimState.ATTACK: return "attack"
+		AnimState.WALK: return "walk"
 		_: return ""
 
 ## Máquina de estados de animación: transiciona al estado indicado y reproduce la animación correspondiente.
+## Transiciones IDLE↔WALK usan cross-fade (blend) de 0.25s para suavidad.
 func set_animation_state(s: AnimState) -> void:
 	if s == AnimState.NONE:
 		_stop_idle()
@@ -257,12 +550,30 @@ func set_animation_state(s: AnimState) -> void:
 	if _anim_state == s and s == AnimState.IDLE:
 		return
 
+	var prev_state: AnimState = _anim_state
 	var ap: AnimationPlayer = _get_anim_ap()
 	var anim_name := _anim_name_for_state(s)
 	if ap and anim_name != "" and ap.has_animation(anim_name):
-		_stop_idle()
+		# Blend suave para transiciones IDLE↔WALK; instantáneo para el resto
+		var use_blend: bool = (
+			(prev_state == AnimState.IDLE and s == AnimState.WALK) or
+			(prev_state == AnimState.WALK and s == AnimState.IDLE)
+		)
+		_stop_idle_tween()  # Matar tween de breathing/bounce, sin parar AnimationPlayer
 		_anim_state = s
-		ap.play(anim_name)
+		if use_blend:
+			ap.play(anim_name, 0.25)  # Cross-fade 0.25s
+		else:
+			ap.play(anim_name)
+	elif s == AnimState.WALK:
+		# Fallback: bounce vertical simulando caminar
+		_stop_idle()
+		_anim_state = AnimState.WALK
+		_idle_tween = create_tween()
+		_idle_tween.set_loops()
+		_idle_tween.set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+		_idle_tween.tween_property(visual, "position:y", 0.08, 0.15)
+		_idle_tween.tween_property(visual, "position:y", 0.0, 0.15)
 	elif s == AnimState.SPAWN:
 		set_animation_state(AnimState.IDLE)
 	elif s == AnimState.IDLE:
@@ -279,13 +590,20 @@ func set_animation_state(s: AnimState) -> void:
 func play_idle() -> void:
 	set_animation_state(AnimState.IDLE)
 
-func _stop_idle() -> void:
+## Detiene solo el tween de breathing/bounce, sin tocar el AnimationPlayer.
+## Usado para transiciones con blend donde el AP necesita seguir corriendo.
+func _stop_idle_tween() -> void:
 	if _idle_tween and _idle_tween.is_running():
 		_idle_tween.kill()
 	_idle_tween = null
 	visual.scale = Vector3.ONE
+	visual.position.y = 0.0
+
+
+func _stop_idle() -> void:
+	_stop_idle_tween()
 	var ap: AnimationPlayer = _get_anim_ap()
-	if ap and ap.has_animation("idle"):
+	if ap and ap.is_playing():
 		ap.stop()
 
 func _on_animation_finished(_anim_name: StringName) -> void:
@@ -295,16 +613,12 @@ func _on_animation_finished(_anim_name: StringName) -> void:
 func take_damage(amount: int) -> void:
 	take_damage_split(amount, 0)
 
-## Aplica daño físico y mágico reducido por armadura y resistencia mágica.
+## Aplica daño físico y mágico ya reducido por armadura y resistencia mágica.
 func take_damage_split(physical: int, magic: int) -> void:
-	if not alive:
+	if not alive or not stats:
 		return
-	var phys_taken: int = max(0, physical - armor)
-	var magic_taken: int = max(0, magic - magic_resist)
-	var total: int = phys_taken + magic_taken
-	hp = max(hp - total, 0)
-	emit_signal("hp_changed", self)
-	if hp <= 0:
+	stats.apply_damage_direct(physical, magic)
+	if stats.hp <= 0:
 		die()
 	else:
 		_play_hurt_fx()
@@ -313,6 +627,7 @@ func take_damage_split(physical: int, magic: int) -> void:
 func die() -> void:
 	if not alive:
 		return
+	print("[Unit] %s: murio" % display_name)
 	alive = false
 	set_selected(false)
 	collider.disabled = true
@@ -362,33 +677,62 @@ func _approach_position(target: Unit) -> Vector3:
 	p.y = global_position.y
 	return p
 
+## Mueve la unidad al tile destino con animación de caminar.
+func move_to_tile(target_pos: Vector3) -> void:
+	if not alive:
+		return
+	var dest := target_pos + Vector3(0, 0.1, 0)
+	_face_target(dest)
+
+	# Intentar animación walk
+	set_animation_state(AnimState.WALK)
+
+	var move_tween := create_tween()
+	move_tween.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN_OUT)
+	var distance: float = global_position.distance_to(dest)
+	var duration: float = clampf(distance / 3.0, 0.3, 1.5)
+	move_tween.tween_property(self, "global_position", dest, duration)
+	await move_tween.finished
+
+	set_animation_state(AnimState.IDLE)
+
+
 func attack_target(target: Unit, ability_index: int = 0) -> void:
-	# Async action: move -> attack anim -> resolve dodge/hit/crit -> damage -> return.
+	# Async action: approach (melee) o stay (ranged) -> attack anim -> resolve -> return.
 	if not alive or not target or not target.alive:
 		return
 
 	set_animation_state(AnimState.NONE)
 	set_selected(false)
 
+	# Guardar el último enemigo atacado (para facing post-movimiento)
+	_last_attacked_unit = target
+
+	var ab: Dictionary = Unit.get_ability(self, ability_index)
+	var is_melee: bool = ab.get("range", 99) <= 1
 	var start_pos := global_position
 	var start_rot := global_rotation
 
-	var approach := _approach_position(target)
-
 	_face_target(target.global_position)
-	var t_move := create_tween()
-	t_move.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
-	t_move.tween_property(self, "global_position", approach, 0.35)
-	await t_move.finished
 
-	await _play_attack_animation()
+	if is_melee:
+		# Melee: acercarse al enemigo
+		var approach := _approach_position(target)
+		var t_move := create_tween()
+		t_move.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+		t_move.tween_property(self, "global_position", approach, 0.35)
+		await t_move.finished
+
+	await _play_attack_animation(ability_index)
 
 	_resolve_attack_damage(target, ability_index)
 
-	var t_back := create_tween()
-	t_back.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN_OUT)
-	t_back.tween_property(self, "global_position", start_pos, 0.35)
-	await t_back.finished
+	if is_melee:
+		# Solo volver si se acercó
+		var t_back := create_tween()
+		t_back.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN_OUT)
+		t_back.tween_property(self, "global_position", start_pos, 0.35)
+		await t_back.finished
 
 	# Restore original rotation por el camino más corto (evita giro de 360° por Euler ±PI).
 	var current_y := global_rotation.y
@@ -402,20 +746,47 @@ func attack_target(target: Unit, ability_index: int = 0) -> void:
 	set_animation_state(AnimState.IDLE)
 
 func _resolve_attack_damage(target: Unit, ability_index: int) -> void:
+	if not stats or not target.stats:
+		return
 	var ab: Dictionary = Unit.get_ability(self, ability_index)
-	if randf() < target.dodge_chance:
+	# Bloqueo activo: anula el golpe y consume el bloqueo
+	if target._blocking:
+		target._blocking = false
+		target.show_floating_text("¡Bloqueado!", Color(0.3, 0.7, 1.0))
+		# Registrar: atacante falló (bloqueado), defensor bloqueó
+		stats.battle_misses += 1
+		target.stats.battle_blocks += 1
+		return
+	if randf() < target.stats.evasion:
 		target.show_floating_text("Esquive", Color.YELLOW)
+		# Registrar: atacante falló (esquivado), defensor esquivó
+		stats.battle_misses += 1
+		target.stats.battle_evades += 1
 		return
 	if randf() > ab.get("hit_chance", 1.0):
 		target.show_floating_text("Falló", Color(0.55, 0.55, 0.55))
+		# Registrar: atacante falló
+		stats.battle_misses += 1
 		return
-	var crit_mult: float = 2.0 if randf() < crit_chance else 1.0
-	var phys: int = int((physical_damage + ab.get("physical", 0)) * crit_mult)
-	var mag: int = int((magic_damage + ab.get("magic", 0)) * crit_mult)
-	var phys_taken: int = max(0, phys - target.armor)
-	var magic_taken: int = max(0, mag - target.magic_resist)
+	var crit_mult: float = 2.0 if randf() < stats.crit_chance else 1.0
+	var phys: int = int((stats.physical_damage + ab.get("physical", 0)) * crit_mult)
+	var mag: int = int((stats.magic_damage + ab.get("magic", 0)) * crit_mult)
+	var phys_taken: int = max(0, phys - target.stats.armor)
+	var magic_taken: int = max(0, mag - target.stats.magic_resist)
 	var phys_blocked: int = phys - phys_taken
 	var magic_blocked: int = mag - magic_taken
+	var total_dealt: int = phys_taken + magic_taken
+
+	# Registrar estadísticas acumuladas del atacante
+	stats.battle_hits += 1
+	stats.battle_damage_dealt += total_dealt
+	if crit_mult >= 2.0:
+		stats.battle_crits += 1
+	# Registrar estadísticas del defensor
+	target.stats.battle_damage_taken += total_dealt
+	# Kill: se registrará si muere por este golpe
+	if target.stats.hp - total_dealt <= 0:
+		stats.battle_kills += 1
 
 	var v_offset: float = 0.0
 	var line_height: float = 0.4
@@ -443,11 +814,11 @@ func _resolve_attack_damage(target: Unit, ability_index: int) -> void:
 	target.take_damage_split(phys_taken, magic_taken)
 
 ## Muestra un popup flotante sobre la unidad (esquive, daño, bloqueos, etc.).
-## delay_sec: segundos antes de mostrar este popup (evita que se superpongan).
+## delay_sec: segundos antes de mostrar este popup (para escalonar múltiples popups).
 func show_floating_text(text: String, text_color: Color, vertical_offset: float = 0.0, delay_sec: float = 0.0) -> void:
 	if delay_sec > 0.0:
-		var timer: SceneTreeTimer = get_tree().create_timer(delay_sec)
-		timer.timeout.connect(_spawn_one_floating_text.bind(text, text_color, vertical_offset))
+		await get_tree().create_timer(delay_sec).timeout
+	if not is_instance_valid(self):
 		return
 	_spawn_one_floating_text(text, text_color, vertical_offset)
 
@@ -480,20 +851,52 @@ func _spawn_one_floating_text(text: String, text_color: Color, vertical_offset: 
 	t.set_parallel(false)
 	t.tween_callback(label.queue_free)
 
-## Reproduce la animación de ataque (Interact del rig si existe) y espera a que termine.
-func _play_attack_animation() -> void:
+## Reproduce la animación de ataque para el ability_index.
+## Lee anim_name de la habilidad del arma equipada; fallback a "attack" (Interact genérico).
+func _play_attack_animation(ability_index: int = 0) -> void:
 	var ap: AnimationPlayer = _get_anim_ap()
-	if ap and ap.has_animation("attack"):
-		set_animation_state(AnimState.ATTACK)
+	if not ap:
+		await _fallback_attack_tween()
+		return
+
+	var ab: Dictionary = Unit.get_ability(self, ability_index)
+	var anim_name: String = ab.get("anim_name", "attack")
+	if not ap.has_animation(anim_name):
+		anim_name = "attack"
+
+	if ap.has_animation(anim_name):
+		_stop_idle()
+		_anim_state = AnimState.ATTACK
+		ap.play(anim_name)
 		await ap.animation_finished
 	else:
-		# Fallback: squash + flash para unidades sin animación de ataque.
-		var t := create_tween()
-		t.set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
-		t.tween_property(visual, "scale", Vector3(1.12, 0.88, 1.12), 0.12)
-		t.tween_property(visual, "scale", Vector3.ONE, 0.12)
-		for m in _mesh_materials:
-			if m is StandardMaterial3D:
-				t.parallel().tween_property(m, "albedo_color", _base_color.lightened(0.25), 0.10)
-				t.parallel().tween_property(m, "albedo_color", _base_color, 0.20)
-		await t.finished
+		await _fallback_attack_tween()
+
+
+## Fallback visual: squash + flash para unidades sin animación de ataque.
+func _fallback_attack_tween() -> void:
+	var t := create_tween()
+	t.set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	t.tween_property(visual, "scale", Vector3(1.12, 0.88, 1.12), 0.12)
+	t.tween_property(visual, "scale", Vector3.ONE, 0.12)
+	for m in _mesh_materials:
+		if m is StandardMaterial3D:
+			t.parallel().tween_property(m, "albedo_color", _base_color.lightened(0.25), 0.10)
+			t.parallel().tween_property(m, "albedo_color", _base_color, 0.20)
+	await t.finished
+
+
+## Devuelve el objetivo al que mirar tras moverse:
+## el último atacado si sigue vivo, sino el enemigo más cercano de la lista.
+func get_facing_target_after_move(opponents: Array) -> Unit:
+	if _last_attacked_unit and is_instance_valid(_last_attacked_unit) and _last_attacked_unit.alive:
+		return _last_attacked_unit
+	var nearest: Unit = null
+	var min_dist: float = INF
+	for u in opponents:
+		if u is Unit and (u as Unit).alive:
+			var d: float = global_position.distance_squared_to((u as Unit).global_position)
+			if d < min_dist:
+				min_dist = d
+				nearest = u as Unit
+	return nearest

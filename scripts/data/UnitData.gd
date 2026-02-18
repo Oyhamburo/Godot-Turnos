@@ -1,6 +1,8 @@
 extends Resource
 class_name UnitData
 
+@export var stats_template: UnitStatsTemplate  # Opcional; si no existe, se usa data legacy
+
 @export var display_name: String = "Unit"
 @export_enum("PLAYER", "ENEMY") var team: int = 0
 
