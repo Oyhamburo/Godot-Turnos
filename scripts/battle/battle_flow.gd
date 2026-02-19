@@ -18,6 +18,7 @@ enum State {
 	CHOOSING_ITEM,
 	CHOOSING_EQUIPO,
 	CHOOSING_MOVE,
+	QTE,
 	ENEMY_TURN,
 	ANIMATING,
 	BATTLE_END
@@ -46,6 +47,12 @@ var _hovered_tile: Tile = null
 
 # Sistema de selección de objetivo
 var _valid_target_tiles: Array[Vector2i] = []
+
+# QTE (Quick Time Event)
+var _qte_target: Unit = null             # target del ataque (single target)
+var _qte_center_coord: Vector2i = Vector2i.ZERO  # centro AoE
+var _qte_is_aoe: bool = false            # true si es ataque AoE
+var _qte_ability_index: int = 0
 
 
 func _ready() -> void:
@@ -78,6 +85,11 @@ func _ready() -> void:
 	_connect_hud_signals()
 
 	_start_intro_pan()
+
+
+func _process(delta: float) -> void:
+	if _state == State.QTE and hud:
+		hud.qte_process(delta)
 
 
 func _use_baked_layout() -> bool:
@@ -546,6 +558,11 @@ func _on_hud_attack_selected(index: int) -> void:
 		_check_turn_end_or_continue()
 		return
 
+	# ── Ataque AoE: seleccionar zona en vez de enemigo ──────
+	if _is_aoe_ability(ab):
+		_start_choosing_aoe_target(index)
+		return
+
 	# ── Ataque normal: entrar a CHOOSING_TARGET ─────────────
 	var attacker_coord: Vector2i = board.get_coords_for_unit(_current_unit)
 
@@ -789,7 +806,6 @@ func _execute_attack_on_target(target: Unit) -> void:
 		_hovered_tile = null
 	_valid_target_tiles.clear()
 
-	_state = State.ANIMATING
 	if hud:
 		hud.hide_all_menus()
 
@@ -798,6 +814,14 @@ func _execute_attack_on_target(target: Unit) -> void:
 	# Cámara encuadra a ambos personajes durante el ataque
 	camera_rig.tween_to_combat_view(_current_unit.global_position, target.global_position)
 
+	# ── QTE para ataques del player ──
+	if _current_unit.team == Unit.Team.PLAYER:
+		print("[BattleFlow] Iniciando QTE antes de atacar a %s" % target.display_name)
+		_start_qte(target, Vector2i.ZERO, _selected_ability_index, false)
+		return
+
+	# Enemigo: ataque directo (sin QTE)
+	_state = State.ANIMATING
 	print("[BattleFlow] Atacando a %s con habilidad %d" % [target.display_name, _selected_ability_index])
 	await _current_unit.attack_target(target, _selected_ability_index)
 
@@ -805,6 +829,219 @@ func _execute_attack_on_target(target: Unit) -> void:
 	await get_tree().create_timer(0.3).timeout
 
 	_check_turn_end_or_continue()
+
+
+## Devuelve true si la habilidad tiene campo de efecto (AoE).
+func _is_aoe_ability(ab: Dictionary) -> bool:
+	return ab.get("aoe_radius", 0) > 0
+
+
+## Entra al estado de selección de centro AoE. El jugador puede clickear CUALQUIER tile
+## dentro del rango de ataque (no solo tiles con enemigos).
+func _start_choosing_aoe_target(ability_index: int) -> void:
+	_selected_ability_index = ability_index
+	var ab: Dictionary = Unit.get_ability(_current_unit, ability_index)
+	var atk_range: int = ab.get("range", 99)
+	var attacker_coord: Vector2i = board.get_coords_for_unit(_current_unit)
+
+	# Para AoE, TODOS los tiles en rango son válidos (no solo los que tienen enemigos)
+	_valid_target_tiles.clear()
+	for coord in board.tiles:
+		var tile: Tile = board.get_tile_at(coord)
+		if tile and board.get_tile_distance(attacker_coord, coord) <= atk_range:
+			_valid_target_tiles.append(coord)
+
+	_state = State.CHOOSING_TARGET
+	board.clear_all_highlights()
+	board.highlight_attack_range(attacker_coord, atk_range)
+
+	if hud:
+		hud.show_target_selection_prompt(ab.get("display_name", "Ataque") + " (AoE)")
+
+	camera_rig.tween_to_overview(board.get_board_center(), board.get_board_size(), 0.5)
+	print("[BattleFlow] Estado: CHOOSING_TARGET (AoE) — '%s' rango=%d, radio=%d" % [
+		ab.get("display_name", ""), atk_range, ab.get("aoe_radius", 0)
+	])
+
+
+## Ejecuta un ataque AoE sobre el area centrada en center_coord.
+func _execute_aoe_attack_on_area(center_coord: Vector2i, ability_index: int) -> void:
+	board.clear_all_highlights()
+	if _hovered_tile:
+		_hovered_tile.set_hover_highlighted(false)
+		_hovered_tile = null
+	_valid_target_tiles.clear()
+
+	if hud:
+		hud.hide_all_menus()
+
+	_current_unit.stats.spend_ap(1)
+
+	# Posición mundial del centro del AoE (para cámara y orientación)
+	var center_tile: Tile = board.get_tile_at(center_coord)
+	var center_world: Vector3 = center_tile.world_position if center_tile else Vector3.ZERO
+
+	# Cámara encuadra al atacante y al centro del AoE
+	camera_rig.tween_to_combat_view(_current_unit.global_position, center_world)
+
+	# ── QTE para ataques del player ──
+	if _current_unit.team == Unit.Team.PLAYER:
+		print("[BattleFlow] Iniciando QTE antes de AoE en %s" % center_coord)
+		_start_qte(null, center_coord, ability_index, true)
+		return
+
+	# Enemigo: ataque AoE directo (sin QTE)
+	_state = State.ANIMATING
+
+	var ab: Dictionary = Unit.get_ability(_current_unit, ability_index)
+	var aoe_radius: int = ab.get("aoe_radius", 0)
+	var friendly_fire: bool = ab.get("aoe_friendly_fire", false)
+
+	var aoe_coords: Array[Vector2i] = board.get_aoe_coords(center_coord, aoe_radius)
+	var affected_units: Array[Unit] = []
+	for coord in aoe_coords:
+		var tile: Tile = board.get_tile_at(coord)
+		if tile and tile.occupied_by is Unit:
+			var u: Unit = tile.occupied_by as Unit
+			if u.alive:
+				if u.team == Unit.Team.ENEMY:
+					affected_units.append(u)
+				elif friendly_fire:
+					affected_units.append(u)
+
+	print("[BattleFlow] AoE '%s' en %s — %d tiles, %d unidades afectadas" % [
+		ab.get("display_name", ""), center_coord, aoe_coords.size(), affected_units.size()
+	])
+
+	await _current_unit.attack_area(center_world, affected_units, ability_index)
+
+	await get_tree().create_timer(0.3).timeout
+
+	_check_turn_end_or_continue()
+
+
+# ── QTE (QUICK TIME EVENT) ──────────────────────────────────
+
+## Inicia el QTE antes de un ataque del player. La animación arranca en slow-motion
+## mientras el jugador completa la secuencia Q→W→E.
+func _start_qte(target: Unit, center_coord: Vector2i, ability_index: int, is_aoe: bool) -> void:
+	_state = State.QTE
+	_qte_target = target
+	_qte_center_coord = center_coord
+	_qte_is_aoe = is_aoe
+	_qte_ability_index = ability_index
+
+	# Slow motion del atacante
+	_current_unit.start_attack_slow_motion()
+
+	var ab: Dictionary = Unit.get_ability(_current_unit, ability_index)
+	var is_melee: bool = ab.get("range", 99) <= 1
+
+	_current_unit.set_animation_state(Unit.AnimState.NONE)
+	if target:
+		_current_unit._face_target(target.global_position)
+	elif is_aoe:
+		var ct: Tile = board.get_tile_at(center_coord)
+		if ct:
+			_current_unit._face_target(ct.world_position)
+
+	# Para melee: approach al enemigo a velocidad normal antes del slow-mo
+	if is_melee and target:
+		var approach := _current_unit._approach_position(target)
+		var t_move := _current_unit.create_tween()
+		t_move.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+		t_move.tween_property(_current_unit, "global_position", approach, 0.35)
+		await t_move.finished
+
+	# Iniciar animación de ataque en slow-mo
+	var ap: AnimationPlayer = _current_unit._get_anim_ap()
+	var anim_name: String = ab.get("anim_name", "attack")
+	if ap:
+		if not ap.has_animation(anim_name):
+			anim_name = "attack"
+		if ap.has_animation(anim_name):
+			_current_unit._stop_idle()
+			_current_unit._anim_state = Unit.AnimState.ATTACK
+			ap.play(anim_name)
+
+	# Mostrar QTE UI
+	if hud:
+		if hud.qte_completed.is_connected(_on_qte_completed):
+			hud.qte_completed.disconnect(_on_qte_completed)
+		hud.qte_completed.connect(_on_qte_completed, CONNECT_ONE_SHOT)
+		hud.show_qte()
+
+
+## Callback cuando el QTE termina (éxito o fallo).
+func _on_qte_completed(success: bool) -> void:
+	if _state != State.QTE:
+		return
+
+	# Aplicar modificadores QTE
+	_current_unit.reset_qte_modifiers()
+	if success:
+		_current_unit._qte_hit_bonus = 0.10
+		_current_unit._qte_crit_bonus = 0.15
+		print("[BattleFlow] QTE PERFECTO — +10%% hit, +15%% crit")
+	else:
+		_current_unit._qte_evasion_bonus = 0.15
+		print("[BattleFlow] QTE FALLO — +15%% evasión al enemigo")
+
+	# Restaurar velocidad de animación
+	_current_unit.restore_animation_speed()
+
+	# Ocultar QTE UI
+	if hud:
+		hud.hide_qte()
+
+	_state = State.ANIMATING
+
+	# Detener la animación en slow-mo que estaba corriendo
+	var ap: AnimationPlayer = _current_unit._get_anim_ap()
+	if ap and ap.is_playing():
+		ap.stop()
+	_current_unit._stop_idle()
+
+	# Re-ejecutar el ataque completo a velocidad normal
+	if _qte_is_aoe:
+		await _execute_aoe_after_qte()
+	else:
+		print("[BattleFlow] Atacando a %s con habilidad %d" % [_qte_target.display_name, _qte_ability_index])
+		await _current_unit.attack_target(_qte_target, _qte_ability_index)
+
+	# Limpiar modifiers
+	_current_unit.reset_qte_modifiers()
+
+	await get_tree().create_timer(0.3).timeout
+	_check_turn_end_or_continue()
+
+
+## Ejecuta el ataque AoE después del QTE (recolecta unidades afectadas y delega a Unit).
+func _execute_aoe_after_qte() -> void:
+	var ab: Dictionary = Unit.get_ability(_current_unit, _qte_ability_index)
+	var aoe_radius: int = ab.get("aoe_radius", 0)
+	var friendly_fire: bool = ab.get("aoe_friendly_fire", false)
+
+	var aoe_coords: Array[Vector2i] = board.get_aoe_coords(_qte_center_coord, aoe_radius)
+	var affected_units: Array[Unit] = []
+	for coord in aoe_coords:
+		var tile: Tile = board.get_tile_at(coord)
+		if tile and tile.occupied_by is Unit:
+			var u: Unit = tile.occupied_by as Unit
+			if u.alive:
+				if u.team == Unit.Team.ENEMY:
+					affected_units.append(u)
+				elif friendly_fire:
+					affected_units.append(u)
+
+	var center_tile: Tile = board.get_tile_at(_qte_center_coord)
+	var center_world: Vector3 = center_tile.world_position if center_tile else Vector3.ZERO
+
+	print("[BattleFlow] AoE '%s' en %s — %d unidades afectadas (post-QTE)" % [
+		ab.get("display_name", ""), _qte_center_coord, affected_units.size()
+	])
+
+	await _current_unit.attack_area(center_world, affected_units, _qte_ability_index)
 
 
 ## Raycast de tile desde posición del mouse. Devuelve el Tile o null.
@@ -1091,6 +1328,12 @@ func _on_tile_selected(tile: Tile) -> void:
 
 
 func _input(event: InputEvent) -> void:
+	# ── QTE: procesar input Q/W/E ──
+	if _state == State.QTE:
+		if hud:
+			hud.qte_handle_input(event)
+		return
+
 	# ── CHOOSING_TARGET: hover, click en enemigo, cancelar ──
 	if _state == State.CHOOSING_TARGET:
 		# Cancelar con ESC
@@ -1105,7 +1348,11 @@ func _input(event: InputEvent) -> void:
 			get_viewport().set_input_as_handled()
 			return
 
-		# Hover: resaltar tile bajo el cursor (verde si tiene enemigo en rango, naranja si no)
+		# Obtener info de la habilidad seleccionada para chequear AoE
+		var _ab: Dictionary = Unit.get_ability(_current_unit, _selected_ability_index)
+		var _aoe_r: int = _ab.get("aoe_radius", 0)
+
+		# Hover: resaltar tile bajo el cursor + preview AoE si corresponde
 		if event is InputEventMouseMotion:
 			var tile: Tile = _raycast_tile_at_mouse(event.position)
 			if tile:
@@ -1114,19 +1361,32 @@ func _input(event: InputEvent) -> void:
 				var is_valid: bool = tile.coords in _valid_target_tiles
 				tile.set_hover_highlighted(true, is_valid)
 				_hovered_tile = tile
+				# Si es AoE, mostrar preview del area afectada en púrpura
+				if _aoe_r > 0 and is_valid:
+					board.highlight_aoe_preview(tile.coords, _aoe_r)
+				elif _aoe_r > 0:
+					board.clear_aoe_preview()
 			elif _hovered_tile:
 				_hovered_tile.set_hover_highlighted(false)
 				_hovered_tile = null
+				if _aoe_r > 0:
+					board.clear_aoe_preview()
 			return
 
-		# Click izquierdo: confirmar target si el tile tiene un enemigo en rango
+		# Click izquierdo: confirmar target
 		if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
 			var tile: Tile = _raycast_tile_at_mouse(event.position)
 			if tile and tile.coords in _valid_target_tiles:
-				var target: Unit = tile.occupied_by as Unit
-				if target and target.alive:
+				if _aoe_r > 0:
+					# AoE: ejecutar ataque de area (no requiere enemigo en el tile)
 					get_viewport().set_input_as_handled()
-					_execute_attack_on_target(target)
+					_execute_aoe_attack_on_area(tile.coords, _selected_ability_index)
+				else:
+					# Single target: requiere enemigo en el tile
+					var target: Unit = tile.occupied_by as Unit
+					if target and target.alive:
+						get_viewport().set_input_as_handled()
+						_execute_attack_on_target(target)
 			return
 
 		return  # No procesar otros eventos durante CHOOSING_TARGET
@@ -1181,7 +1441,7 @@ func _input(event: InputEvent) -> void:
 	if not event is InputEventMouseButton or not event.pressed or event.button_index != MOUSE_BUTTON_LEFT:
 		return
 	# Solo permitir selección de tiles en estados que no son de menú
-	if _state in [State.CHOOSING_ACTION, State.CHOOSING_ATTACK, State.CHOOSING_TARGET, State.CHOOSING_ITEM, State.CHOOSING_EQUIPO]:
+	if _state in [State.CHOOSING_ACTION, State.CHOOSING_ATTACK, State.CHOOSING_TARGET, State.CHOOSING_ITEM, State.CHOOSING_EQUIPO, State.QTE]:
 		return
 
 	var camera: Camera3D = get_viewport().get_camera_3d()

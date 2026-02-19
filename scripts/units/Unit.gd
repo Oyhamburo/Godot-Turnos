@@ -64,6 +64,11 @@ var inventory: Inventory = null
 ## true cuando la unidad usó "Defender" este turno: anula el siguiente golpe recibido.
 var _blocking: bool = false
 
+## Modificadores QTE (temporales, por ataque del player)
+var _qte_hit_bonus: float = 0.0      # +0.10 si perfect
+var _qte_crit_bonus: float = 0.0     # +0.15 si perfect
+var _qte_evasion_bonus: float = 0.0  # +0.15 si fallo (se aplica al target)
+
 ## Último enemigo atacado por esta unidad (para orientarse al terminar de moverse).
 var _last_attacked_unit: Unit = null
 
@@ -406,8 +411,13 @@ func equip_weapon_data(weapon_data: WeaponData, slot: WeaponSlot = WeaponSlot.RI
 		_equipped_weapon_data_l = weapon_data  # referencia compartida → indica 2H
 		_apply_weapon_stat_bonuses(weapon_data)
 		if not weapon_data.scene_3d_path.is_empty():
-			equip_weapon(WeaponSlot.RIGHT_HAND, weapon_data.scene_3d_path, weapon_data.hand_offset_pos, weapon_data.hand_offset_rot)
-		unequip_weapon(WeaponSlot.LEFT_HAND)
+			# visual_hand decide en qué mano aparece el modelo (0=derecha, 1=izquierda)
+			var vis_slot: WeaponSlot = WeaponSlot.LEFT_HAND if weapon_data.get("visual_hand") == 1 else WeaponSlot.RIGHT_HAND
+			var other_slot: WeaponSlot = WeaponSlot.RIGHT_HAND if vis_slot == WeaponSlot.LEFT_HAND else WeaponSlot.LEFT_HAND
+			equip_weapon(vis_slot, weapon_data.scene_3d_path, weapon_data.hand_offset_pos, weapon_data.hand_offset_rot)
+			unequip_weapon(other_slot)
+		else:
+			unequip_weapon(WeaponSlot.LEFT_HAND)
 		print("[Unit] %s: equipó WeaponData 2H '%s'" % [display_name, weapon_data.display_name])
 		return
 
@@ -723,9 +733,10 @@ func attack_target(target: Unit, ability_index: int = 0) -> void:
 		t_move.tween_property(self, "global_position", approach, 0.35)
 		await t_move.finished
 
-	await _play_attack_animation(ability_index)
-
-	_resolve_attack_damage(target, ability_index)
+	# El daño se aplica internamente en _play_attack_animation:
+	# - Melee: a ~55% de la animación (cuando el arma conecta)
+	# - Arco: al impacto del proyectil (antes de que Release termine)
+	await _play_attack_animation(ability_index, target)
 
 	if is_melee:
 		# Solo volver si se acercó
@@ -745,6 +756,41 @@ func attack_target(target: Unit, ability_index: int = 0) -> void:
 
 	set_animation_state(AnimState.IDLE)
 
+
+## Ataque de area: reproduce animación de disparo al cielo, efecto de lluvia de flechas,
+## y resuelve daño en cada unidad afectada dentro de la zona.
+func attack_area(center_world: Vector3, affected_units: Array[Unit], ability_index: int = 0) -> void:
+	if not alive:
+		return
+
+	set_animation_state(AnimState.NONE)
+	set_selected(false)
+
+	var ab: Dictionary = Unit.get_ability(self, ability_index)
+	var start_rot := global_rotation
+
+	# Mirar hacia el centro del area AoE
+	_face_target(center_world)
+
+	# Reproducir animación de disparo hacia arriba (Draw Up → Release Up, sin proyectil individual)
+	await _play_bow_attack_aoe(ab.get("anim_name", "ranged_bow_draw_up"))
+
+	# Efecto visual: lluvia de flechas + daño al impacto (antes del linger visual)
+	var aoe_radius: int = ab.get("aoe_radius", 2)
+	await _launch_arrow_rain(center_world, aoe_radius, affected_units, ability_index)
+
+	# Restaurar rotación original
+	var current_y := global_rotation.y
+	var target_y := current_y + wrapf(start_rot.y - current_y, -PI, PI)
+	var final_rot := Vector3(start_rot.x, target_y, start_rot.z)
+	var t_rot := create_tween()
+	t_rot.set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
+	t_rot.tween_property(self, "global_rotation", final_rot, 0.18)
+	await t_rot.finished
+
+	set_animation_state(AnimState.IDLE)
+
+
 func _resolve_attack_damage(target: Unit, ability_index: int) -> void:
 	if not stats or not target.stats:
 		return
@@ -757,18 +803,22 @@ func _resolve_attack_damage(target: Unit, ability_index: int) -> void:
 		stats.battle_misses += 1
 		target.stats.battle_blocks += 1
 		return
-	if randf() < target.stats.evasion:
+	var effective_evasion: float = target.stats.evasion + _qte_evasion_bonus
+	if randf() < effective_evasion:
+		target.play_dodge_animation(global_position)
 		target.show_floating_text("Esquive", Color.YELLOW)
 		# Registrar: atacante falló (esquivado), defensor esquivó
 		stats.battle_misses += 1
 		target.stats.battle_evades += 1
 		return
-	if randf() > ab.get("hit_chance", 1.0):
+	var effective_hit: float = ab.get("hit_chance", 1.0) + _qte_hit_bonus
+	if randf() > effective_hit:
 		target.show_floating_text("Falló", Color(0.55, 0.55, 0.55))
 		# Registrar: atacante falló
 		stats.battle_misses += 1
 		return
-	var crit_mult: float = 2.0 if randf() < stats.crit_chance else 1.0
+	var effective_crit: float = stats.crit_chance + _qte_crit_bonus
+	var crit_mult: float = 2.0 if randf() < effective_crit else 1.0
 	var phys: int = int((stats.physical_damage + ab.get("physical", 0)) * crit_mult)
 	var mag: int = int((stats.magic_damage + ab.get("magic", 0)) * crit_mult)
 	var phys_taken: int = max(0, phys - target.stats.armor)
@@ -853,24 +903,341 @@ func _spawn_one_floating_text(text: String, text_color: Color, vertical_offset: 
 
 ## Reproduce la animación de ataque para el ability_index.
 ## Lee anim_name de la habilidad del arma equipada; fallback a "attack" (Interact genérico).
-func _play_attack_animation(ability_index: int = 0) -> void:
+## Si es un ataque de arco (ranged_bow_draw*), encadena Draw→Release y lanza proyectil.
+func _play_attack_animation(ability_index: int = 0, target: Unit = null) -> void:
+	var ab: Dictionary = Unit.get_ability(self, ability_index)
+	var anim_name: String = ab.get("anim_name", "attack")
+
+	# Flujo especial para arco: Draw → proyectil → Release encadenados
+	# El daño se aplica dentro de _play_bow_attack al momento del impacto del proyectil
+	if anim_name.begins_with("ranged_bow_draw") and target != null:
+		await _play_bow_attack(anim_name, target, ability_index)
+		return
+
+	# Flujo genérico (una sola animación) — daño a ~55% de la animación
+	var ap: AnimationPlayer = _get_anim_ap()
+	if not ap:
+		await _fallback_attack_tween()
+		if target != null and is_instance_valid(target) and target.alive:
+			_resolve_attack_damage(target, ability_index)
+		return
+	if not ap.has_animation(anim_name):
+		anim_name = "attack"
+	if ap.has_animation(anim_name):
+		_stop_idle()
+		_anim_state = AnimState.ATTACK
+		var anim_len: float = ap.get_animation(anim_name).length
+		ap.play(anim_name)
+		# Aplicar daño a mitad de la animación (cuando el arma conecta visualmente)
+		if target != null:
+			get_tree().create_timer(anim_len * 0.55).timeout.connect(func() -> void:
+				if is_instance_valid(self) and is_instance_valid(target) and target.alive:
+					_resolve_attack_damage(target, ability_index), CONNECT_ONE_SHOT)
+		await ap.animation_finished
+	else:
+		await _fallback_attack_tween()
+		if target != null and is_instance_valid(target) and target.alive:
+			_resolve_attack_damage(target, ability_index)
+
+
+## Devuelve el MeshInstance3D del arco equipado (mano que corresponda a visual_hand).
+## Usado para animar el blend shape "Draw" de la cuerda.
+func _get_bow_mesh() -> MeshInstance3D:
+	# El arco 2H puede estar en mano izquierda o derecha según visual_hand
+	var bow_root: Node3D = null
+	var weapon_data: WeaponData = _equipped_weapon_data_r
+	if weapon_data and weapon_data.get("visual_hand") == 1:
+		bow_root = _equipped_weapon_l
+	else:
+		bow_root = _equipped_weapon_r
+	if not is_instance_valid(bow_root):
+		return null
+	# El MeshInstance3D puede ser el propio nodo o un hijo (depende del GLTF)
+	if bow_root is MeshInstance3D:
+		return bow_root as MeshInstance3D
+	return bow_root.find_child("*", true, false) as MeshInstance3D
+
+
+## Encadena Draw → Release y lanza el proyectil al inicio del Release.
+## Aplica daño al momento del impacto del proyectil (no al terminar Release).
+## Anima el blend shape "Draw" del arco: 0→1 durante Draw, 1→0 durante Release.
+func _play_bow_attack(draw_anim: String, target: Unit, ability_index: int = 0) -> void:
 	var ap: AnimationPlayer = _get_anim_ap()
 	if not ap:
 		await _fallback_attack_tween()
 		return
 
-	var ab: Dictionary = Unit.get_ability(self, ability_index)
-	var anim_name: String = ab.get("anim_name", "attack")
-	if not ap.has_animation(anim_name):
-		anim_name = "attack"
+	# Derivar el nombre de Release desde Draw (ranged_bow_draw → ranged_bow_release)
+	var release_anim: String = draw_anim.replace("_draw", "_release")
 
-	if ap.has_animation(anim_name):
-		_stop_idle()
-		_anim_state = AnimState.ATTACK
-		ap.play(anim_name)
+	# Buscar el MeshInstance3D del arco para animar la cuerda (blend shape "Draw")
+	var bow_mesh: MeshInstance3D = _get_bow_mesh()
+	var has_string_bs: bool = bow_mesh != null and bow_mesh.find_blend_shape_by_name("Draw") >= 0
+	var bs_idx: int = -1
+	if has_string_bs:
+		bs_idx = bow_mesh.find_blend_shape_by_name("Draw")
+
+	# 1. Draw: tensar la cuerda (blend shape 0 → 1 mientras dura la animación)
+	_stop_idle()
+	_anim_state = AnimState.ATTACK
+	if ap.has_animation(draw_anim):
+		var draw_len: float = ap.get_animation(draw_anim).length
+		# Animar cuerda en paralelo con la animación del personaje
+		if bs_idx >= 0:
+			bow_mesh.set_blend_shape_value(bs_idx, 0.0)
+			var t_draw := create_tween()
+			t_draw.set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
+			t_draw.tween_method(func(v: float) -> void:
+				if is_instance_valid(bow_mesh):
+					bow_mesh.set_blend_shape_value(bs_idx, v),
+				0.0, 1.0, draw_len)
+		ap.play(draw_anim)
+		await ap.animation_finished
+
+	# 2. Release + proyectil en paralelo (el proyectil controla el timing del await)
+	var use_bundle: bool = draw_anim.ends_with("_up")
+	if ap.has_animation(release_anim):
+		var release_len: float = ap.get_animation(release_anim).length
+		# Aflojar la cuerda: blend shape 1 → 0 durante Release
+		if bs_idx >= 0:
+			var t_release := create_tween()
+			t_release.set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+			t_release.tween_method(func(v: float) -> void:
+				if is_instance_valid(bow_mesh):
+					bow_mesh.set_blend_shape_value(bs_idx, v),
+				1.0, 0.0, release_len)
+		ap.play(release_anim)
+		# Lanzar proyectil y esperar a que llegue
+		await _launch_arrow_projectile(target, use_bundle)
+		# Aplicar daño al impacto (antes de esperar que Release termine)
+		_resolve_attack_damage(target, ability_index)
+		# Release puede seguir visualmente mientras el target reacciona
+		if ap.is_playing():
+			await ap.animation_finished
+	else:
+		# Sin animación de release: soltar la cuerda rápido
+		if bs_idx >= 0:
+			var t_snap := create_tween()
+			t_snap.set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+			t_snap.tween_method(func(v: float) -> void:
+				if is_instance_valid(bow_mesh):
+					bow_mesh.set_blend_shape_value(bs_idx, v),
+				1.0, 0.0, 0.2)
+		await _launch_arrow_projectile(target, use_bundle)
+		_resolve_attack_damage(target, ability_index)
+
+
+## Variante AoE de _play_bow_attack: reproduce Draw Up → Release Up con cuerda animada,
+## pero NO lanza proyectil individual (el efecto visual es la lluvia de flechas posterior).
+func _play_bow_attack_aoe(draw_anim: String) -> void:
+	var ap: AnimationPlayer = _get_anim_ap()
+	if not ap:
+		await _fallback_attack_tween()
+		return
+
+	var release_anim: String = draw_anim.replace("_draw", "_release")
+
+	# Buscar blend shape "Draw" del arco para animar la cuerda
+	var bow_mesh: MeshInstance3D = _get_bow_mesh()
+	var bs_idx: int = -1
+	if bow_mesh:
+		bs_idx = bow_mesh.find_blend_shape_by_name("Draw")
+
+	# 1. Draw: tensar la cuerda
+	_stop_idle()
+	_anim_state = AnimState.ATTACK
+	if ap.has_animation(draw_anim):
+		var draw_len: float = ap.get_animation(draw_anim).length
+		if bs_idx >= 0:
+			bow_mesh.set_blend_shape_value(bs_idx, 0.0)
+			var t_draw := create_tween()
+			t_draw.set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
+			t_draw.tween_method(func(v: float) -> void:
+				if is_instance_valid(bow_mesh):
+					bow_mesh.set_blend_shape_value(bs_idx, v),
+				0.0, 1.0, draw_len)
+		ap.play(draw_anim)
+		await ap.animation_finished
+
+	# 2. Release (sin proyectil individual)
+	if ap.has_animation(release_anim):
+		var release_len: float = ap.get_animation(release_anim).length
+		if bs_idx >= 0:
+			var t_release := create_tween()
+			t_release.set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+			t_release.tween_method(func(v: float) -> void:
+				if is_instance_valid(bow_mesh):
+					bow_mesh.set_blend_shape_value(bs_idx, v),
+				1.0, 0.0, release_len)
+		ap.play(release_anim)
 		await ap.animation_finished
 	else:
-		await _fallback_attack_tween()
+		# Sin animación de release: soltar la cuerda rápido
+		if bs_idx >= 0:
+			var t_snap := create_tween()
+			t_snap.set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+			t_snap.tween_method(func(v: float) -> void:
+				if is_instance_valid(bow_mesh):
+					bow_mesh.set_blend_shape_value(bs_idx, v),
+				1.0, 0.0, 0.2)
+			await t_snap.finished
+
+
+## Efecto visual de lluvia de flechas: spawn múltiples flechas individuales (arrow_bow.gltf)
+## que caen desde lo alto sobre el area AoE. Aplica daño al impacto (antes del linger).
+func _launch_arrow_rain(center_world: Vector3, aoe_radius: int = 2,
+		affected_units: Array[Unit] = [], ability_index: int = 0) -> void:
+	# Determinar el asset de flecha individual (NO bundle)
+	var weapon: WeaponData = _equipped_weapon_data_r
+	var arrow_path: String = ""
+	if weapon and not weapon.projectile_scene_path.is_empty():
+		arrow_path = weapon.projectile_scene_path
+	if arrow_path.is_empty():
+		arrow_path = "res://assets/KayKit_Adventurers_2.0_FREE/Assets/gltf/arrow_bow.gltf"
+
+	if not ResourceLoader.exists(arrow_path):
+		await get_tree().create_timer(0.6).timeout
+		return
+
+	var arrow_scene: PackedScene = load(arrow_path) as PackedScene
+	if not arrow_scene:
+		await get_tree().create_timer(0.6).timeout
+		return
+
+	var scene_root: Node = get_parent()
+	if not scene_root:
+		return
+
+	# Parámetros de la lluvia
+	var spread: float = aoe_radius * 2.0 + 1.0
+	var arrow_count: int = randi_range(10, 15)
+	var spawn_height: float = 9.0
+	var land_height: float = 0.1
+	var stagger_delay: float = 0.05
+	var fall_duration: float = 0.35
+	var linger_time: float = 0.6
+
+	var arrows: Array[Node3D] = []
+
+	for i in range(arrow_count):
+		var arrow: Node3D = arrow_scene.instantiate() as Node3D
+		if not arrow:
+			continue
+		scene_root.add_child(arrow)
+		arrows.append(arrow)
+
+		# Posición de aterrizaje: random dentro del area AoE
+		var offset_x: float = randf_range(-spread * 0.5, spread * 0.5)
+		var offset_z: float = randf_range(-spread * 0.5, spread * 0.5)
+		var land_pos := Vector3(
+			center_world.x + offset_x,
+			land_height,
+			center_world.z + offset_z
+		)
+
+		# Posición de inicio: directamente arriba con pequeño offset aleatorio
+		var start_pos := Vector3(
+			land_pos.x + randf_range(-0.3, 0.3),
+			spawn_height + randf_range(0.0, 2.0),
+			land_pos.z + randf_range(-0.3, 0.3)
+		)
+
+		arrow.global_position = start_pos
+
+		# Orientar la flecha apuntando hacia abajo (punta primero)
+		arrow.rotation = Vector3(PI / 2.0, randf_range(-0.3, 0.3), randf_range(-0.2, 0.2))
+
+		# Tween de caída escalonada
+		var t := arrow.create_tween()
+		t.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+		if i > 0:
+			t.tween_interval(i * stagger_delay)
+		t.tween_property(arrow, "global_position", land_pos, fall_duration)
+
+	# Esperar a que todas las flechas terminen de caer
+	var total_rain_time: float = float(arrow_count - 1) * stagger_delay + fall_duration
+	await get_tree().create_timer(total_rain_time + 0.05).timeout
+
+	# Aplicar daño al impacto (las flechas ya llegaron al suelo)
+	for target in affected_units:
+		if is_instance_valid(target) and target.alive:
+			_resolve_attack_damage(target, ability_index)
+
+	# Las flechas quedan "clavadas" un momento mientras se muestran los floating text
+	await get_tree().create_timer(linger_time).timeout
+
+	# Limpiar todas las flechas
+	for arrow in arrows:
+		if is_instance_valid(arrow):
+			arrow.queue_free()
+
+
+## Instancia una flecha 3D en la mano del arquero y la mueve hacia el objetivo.
+## Retorna cuando la flecha llega (await), para sincronizar la aplicación del daño.
+func _launch_arrow_projectile(target: Unit, use_bundle: bool = false) -> void:
+	if not is_instance_valid(target):
+		return
+
+	# Determinar el asset de flecha desde el WeaponData equipado
+	var weapon: WeaponData = _equipped_weapon_data_r
+	var arrow_path: String = ""
+	if weapon:
+		if use_bundle and not weapon.projectile_bundle_path.is_empty():
+			arrow_path = weapon.projectile_bundle_path
+		elif not weapon.projectile_scene_path.is_empty():
+			arrow_path = weapon.projectile_scene_path
+
+	# Fallback genérico si no hay path en WeaponData
+	if arrow_path.is_empty():
+		arrow_path = "res://assets/KayKit_Adventurers_2.0_FREE/Assets/gltf/arrow_bow.gltf"
+
+	if not ResourceLoader.exists(arrow_path):
+		# Sin asset: esperar un tiempo fijo simulando el vuelo
+		await get_tree().create_timer(0.35).timeout
+		return
+
+	var arrow_scene: PackedScene = load(arrow_path) as PackedScene
+	if not arrow_scene:
+		await get_tree().create_timer(0.35).timeout
+		return
+
+	var arrow: Node3D = arrow_scene.instantiate() as Node3D
+	if not arrow:
+		await get_tree().create_timer(0.35).timeout
+		return
+
+	# Añadir al nivel de la escena (no como hijo de la unidad, para que vuele libre)
+	var scene_root: Node = get_parent()
+	if not scene_root:
+		arrow.queue_free()
+		return
+	scene_root.add_child(arrow)
+
+	# Posición de inicio: punto de anclaje del arma en la mano derecha
+	var start_pos: Vector3 = global_position + Vector3(0.0, 1.2, 0.0)
+	if _weapon_attachment_r and is_instance_valid(_weapon_attachment_r):
+		start_pos = _weapon_attachment_r.global_position
+
+	# Posición destino: torso del objetivo
+	var end_pos: Vector3 = target.global_position + Vector3(0.0, 1.0, 0.0)
+
+	arrow.global_position = start_pos
+
+	# Orientar la flecha hacia el destino
+	if start_pos.distance_squared_to(end_pos) > 0.001:
+		arrow.look_at(end_pos, Vector3.UP)
+
+	# Tiempo de vuelo proporcional a la distancia (entre 0.15 y 0.55 segundos)
+	var dist: float = start_pos.distance_to(end_pos)
+	var flight_time: float = clampf(dist * 0.07, 0.15, 0.55)
+
+	var t := arrow.create_tween()
+	t.set_trans(Tween.TRANS_LINEAR)
+	t.tween_property(arrow, "global_position", end_pos, flight_time)
+	await t.finished
+
+	if is_instance_valid(arrow):
+		arrow.queue_free()
 
 
 ## Fallback visual: squash + flash para unidades sin animación de ataque.
@@ -900,3 +1267,50 @@ func get_facing_target_after_move(opponents: Array) -> Unit:
 				min_dist = d
 				nearest = u as Unit
 	return nearest
+
+
+# ── QTE: SLOW MOTION / DODGE / MODIFIERS ───────────────────
+
+## Ralentiza la animación del AnimationPlayer (para QTE slow-motion).
+func start_attack_slow_motion() -> void:
+	var ap: AnimationPlayer = _get_anim_ap()
+	if ap:
+		ap.speed_scale = 0.15
+
+
+## Restaura la velocidad normal de la animación.
+func restore_animation_speed() -> void:
+	var ap: AnimationPlayer = _get_anim_ap()
+	if ap:
+		ap.speed_scale = 1.0
+
+
+## Limpia los modificadores QTE después de cada ataque.
+func reset_qte_modifiers() -> void:
+	_qte_hit_bonus = 0.0
+	_qte_crit_bonus = 0.0
+	_qte_evasion_bonus = 0.0
+
+
+## Reproduce una animación de dodge direccional (fire-and-forget, no bloquea el flujo).
+## Elige dodge_backward/forward/left/right según la posición del atacante.
+func play_dodge_animation(attacker_pos: Vector3) -> void:
+	var ap: AnimationPlayer = _get_anim_ap()
+	if not ap:
+		return
+	# Determinar dirección relativa del atacante
+	var to_attacker: Vector3 = (attacker_pos - global_position).normalized()
+	var forward_dir: Vector3 = -global_transform.basis.z.normalized()
+	var dot: float = forward_dir.dot(to_attacker)
+	var cross_y: float = forward_dir.cross(to_attacker).y
+
+	var dodge_name: String = "dodge_backward"
+	if dot < -0.5:
+		dodge_name = "dodge_forward"
+	elif abs(cross_y) > 0.5:
+		dodge_name = "dodge_left" if cross_y > 0 else "dodge_right"
+
+	if ap.has_animation(dodge_name):
+		ap.play(dodge_name)
+	elif ap.has_animation("dodge_backward"):
+		ap.play("dodge_backward")

@@ -14,6 +14,7 @@ signal equip_weapon_requested(weapon: WeaponData, slot: int)  # slot: 0=derecha,
 signal unequip_weapon_requested(slot: int)
 signal back_from_equipo()
 signal return_to_main_menu()                 # emitida al pulsar "Menú Principal"
+signal qte_completed(success: bool)          # true = perfect combo, false = fallo
 
 const _TurnSlotScene = preload("res://scenes/ui/TurnSlot.tscn")
 
@@ -50,6 +51,20 @@ var _detail_panel: PanelContainer = null   # Panel de detalles (oculto por defec
 
 # ── Label de selección de objetivo ──
 var _target_prompt_label: Label = null
+
+# ── QTE (Quick Time Event) ──
+var _qte_panel: PanelContainer = null
+var _qte_key_boxes: Array[PanelContainer] = []
+var _qte_key_labels: Array[Label] = []
+var _qte_timer_bar: ProgressBar = null
+var _qte_feedback_label: Label = null
+var _qte_current_index: int = 0
+var _qte_sequence: Array[String] = ["Q", "W", "E"]
+var _qte_keycodes: Array[Key] = [KEY_Q, KEY_W, KEY_E]
+var _qte_failed: bool = false
+var _qte_active: bool = false
+var _qte_timer: float = 0.0
+var _qte_timeout: float = 1.0  # segundos por tecla
 
 
 func _ready() -> void:
@@ -214,6 +229,9 @@ func _build_ui() -> void:
 	_target_prompt_label.visible = false
 	root.add_child(_target_prompt_label)
 
+	# ── QTE Panel (centro de la pantalla, oculto por defecto) ──
+	_build_qte_panel(root)
+
 
 func _make_menu_panel(parent: Control, panel_name: String, size: Vector2) -> PanelContainer:
 	var panel := PanelContainer.new()
@@ -277,6 +295,237 @@ func _make_btn_style(color: Color) -> StyleBoxFlat:
 	style.content_margin_right = 16
 	style.content_margin_bottom = 10
 	return style
+
+
+# ── QTE BUILD ──────────────────────────────────────────────
+
+func _build_qte_panel(root: Control) -> void:
+	_qte_panel = PanelContainer.new()
+	_qte_panel.name = "QTEPanel"
+	_qte_panel.set_anchors_preset(Control.PRESET_CENTER)
+	_qte_panel.anchor_left = 0.5
+	_qte_panel.anchor_top = 0.5
+	_qte_panel.anchor_right = 0.5
+	_qte_panel.anchor_bottom = 0.5
+	_qte_panel.offset_left = -160
+	_qte_panel.offset_top = 40
+	_qte_panel.offset_right = 160
+	_qte_panel.offset_bottom = 180
+	_qte_panel.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	_qte_panel.grow_vertical = Control.GROW_DIRECTION_BOTH
+	_qte_panel.add_theme_stylebox_override("panel", _make_panel_style(Color(0.05, 0.05, 0.1, 0.92), 12))
+	_qte_panel.visible = false
+	_qte_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	root.add_child(_qte_panel)
+
+	var vbox := VBoxContainer.new()
+	vbox.add_theme_constant_override("separation", 10)
+	vbox.alignment = BoxContainer.ALIGNMENT_CENTER
+	_qte_panel.add_child(vbox)
+
+	# Fila de cajas Q, W, E
+	var hbox := HBoxContainer.new()
+	hbox.add_theme_constant_override("separation", 14)
+	hbox.alignment = BoxContainer.ALIGNMENT_CENTER
+	vbox.add_child(hbox)
+
+	_qte_key_boxes.clear()
+	_qte_key_labels.clear()
+	for key_text in _qte_sequence:
+		var box := PanelContainer.new()
+		box.custom_minimum_size = Vector2(72, 56)
+		box.add_theme_stylebox_override("panel", _make_qte_box_style(Color(0.2, 0.2, 0.25), Color(0.35, 0.35, 0.4)))
+		hbox.add_child(box)
+
+		var lbl := Label.new()
+		lbl.text = key_text
+		lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		lbl.add_theme_font_size_override("font_size", 28)
+		lbl.add_theme_color_override("font_color", Color(0.7, 0.7, 0.7))
+		lbl.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.9))
+		lbl.add_theme_constant_override("outline_size", 3)
+		box.add_child(lbl)
+
+		_qte_key_boxes.append(box)
+		_qte_key_labels.append(lbl)
+
+	# Barra de timer
+	_qte_timer_bar = ProgressBar.new()
+	_qte_timer_bar.custom_minimum_size = Vector2(0, 10)
+	_qte_timer_bar.max_value = 1.0
+	_qte_timer_bar.value = 1.0
+	_qte_timer_bar.show_percentage = false
+	# Estilo de la barra
+	var bar_bg := StyleBoxFlat.new()
+	bar_bg.bg_color = Color(0.15, 0.15, 0.2)
+	bar_bg.corner_radius_top_left = 4
+	bar_bg.corner_radius_top_right = 4
+	bar_bg.corner_radius_bottom_left = 4
+	bar_bg.corner_radius_bottom_right = 4
+	_qte_timer_bar.add_theme_stylebox_override("background", bar_bg)
+	var bar_fill := StyleBoxFlat.new()
+	bar_fill.bg_color = Color(1.0, 0.85, 0.2)
+	bar_fill.corner_radius_top_left = 4
+	bar_fill.corner_radius_top_right = 4
+	bar_fill.corner_radius_bottom_left = 4
+	bar_fill.corner_radius_bottom_right = 4
+	_qte_timer_bar.add_theme_stylebox_override("fill", bar_fill)
+	vbox.add_child(_qte_timer_bar)
+
+	# Label de feedback
+	_qte_feedback_label = Label.new()
+	_qte_feedback_label.text = ""
+	_qte_feedback_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_qte_feedback_label.add_theme_font_size_override("font_size", 18)
+	_qte_feedback_label.add_theme_color_override("font_color", Color.WHITE)
+	_qte_feedback_label.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.9))
+	_qte_feedback_label.add_theme_constant_override("outline_size", 3)
+	vbox.add_child(_qte_feedback_label)
+
+
+func _make_qte_box_style(bg_color: Color, border_color: Color) -> StyleBoxFlat:
+	var style := StyleBoxFlat.new()
+	style.bg_color = bg_color
+	style.corner_radius_top_left = 8
+	style.corner_radius_top_right = 8
+	style.corner_radius_bottom_left = 8
+	style.corner_radius_bottom_right = 8
+	style.border_width_left = 3
+	style.border_width_top = 3
+	style.border_width_right = 3
+	style.border_width_bottom = 3
+	style.border_color = border_color
+	style.content_margin_left = 8
+	style.content_margin_top = 4
+	style.content_margin_right = 8
+	style.content_margin_bottom = 4
+	return style
+
+
+# ── QTE PUBLIC API ─────────────────────────────────────────
+
+## Baraja el orden de las teclas QTE al azar para cada ataque.
+func _randomize_qte_sequence() -> void:
+	var pairs: Array = []
+	for i in range(_qte_sequence.size()):
+		pairs.append([_qte_sequence[i], _qte_keycodes[i]])
+	pairs.shuffle()
+	for i in range(pairs.size()):
+		_qte_sequence[i] = pairs[i][0]
+		_qte_keycodes[i] = pairs[i][1]
+
+
+## Muestra el panel QTE y comienza la secuencia.
+func show_qte() -> void:
+	_qte_current_index = 0
+	_qte_failed = false
+	_qte_active = true
+	_qte_timer = _qte_timeout
+	_qte_feedback_label.text = ""
+
+	# Randomizar el orden de las teclas
+	_randomize_qte_sequence()
+
+	# Actualizar labels con el nuevo orden
+	for i in range(_qte_key_labels.size()):
+		_qte_key_labels[i].text = _qte_sequence[i]
+
+	# Reset visual de todas las cajas
+	for i in range(_qte_key_boxes.size()):
+		_qte_key_boxes[i].add_theme_stylebox_override("panel",
+			_make_qte_box_style(Color(0.2, 0.2, 0.25), Color(0.35, 0.35, 0.4)))
+		_qte_key_labels[i].add_theme_color_override("font_color", Color(0.7, 0.7, 0.7))
+
+	# Resaltar la primera caja como activa (borde amarillo)
+	_set_qte_box_active(0)
+
+	_qte_timer_bar.value = 1.0
+	_qte_panel.visible = true
+	print("[BattleHUD] QTE iniciado: %s" % str(_qte_sequence))
+
+
+## Oculta el panel QTE.
+func hide_qte() -> void:
+	_qte_active = false
+	_qte_panel.visible = false
+
+
+## Actualiza el timer del QTE. Llamado desde battle_flow._process().
+func qte_process(delta: float) -> void:
+	if not _qte_active:
+		return
+	_qte_timer -= delta
+	_qte_timer_bar.value = clampf(_qte_timer / _qte_timeout, 0.0, 1.0)
+	if _qte_timer <= 0.0:
+		# Timeout: fallo automático
+		_qte_mark_fail(_qte_current_index)
+		_qte_finish(false)
+
+
+## Procesa input de QTE (teclas Q, W, E). Llamado desde battle_flow._input().
+func qte_handle_input(event: InputEvent) -> void:
+	if not _qte_active:
+		return
+	if not (event is InputEventKey and event.pressed and not event.echo):
+		return
+
+	var key: Key = event.keycode
+	var expected_key: Key = _qte_keycodes[_qte_current_index]
+
+	if key == expected_key:
+		# Tecla correcta
+		_qte_mark_success(_qte_current_index)
+		_qte_current_index += 1
+		if _qte_current_index >= _qte_sequence.size():
+			# Todas las teclas correctas: ¡Perfecto!
+			_qte_finish(true)
+		else:
+			# Siguiente tecla
+			_qte_timer = _qte_timeout
+			_set_qte_box_active(_qte_current_index)
+	else:
+		# Tecla incorrecta: fallo
+		_qte_mark_fail(_qte_current_index)
+		_qte_finish(false)
+
+
+func _set_qte_box_active(index: int) -> void:
+	if index < 0 or index >= _qte_key_boxes.size():
+		return
+	_qte_key_boxes[index].add_theme_stylebox_override("panel",
+		_make_qte_box_style(Color(0.25, 0.25, 0.1), Color(1.0, 0.85, 0.2)))
+	_qte_key_labels[index].add_theme_color_override("font_color", Color(1.0, 0.95, 0.6))
+
+
+func _qte_mark_success(index: int) -> void:
+	if index < 0 or index >= _qte_key_boxes.size():
+		return
+	_qte_key_boxes[index].add_theme_stylebox_override("panel",
+		_make_qte_box_style(Color(0.1, 0.4, 0.1), Color(0.2, 0.9, 0.3)))
+	_qte_key_labels[index].add_theme_color_override("font_color", Color(0.3, 1.0, 0.4))
+
+
+func _qte_mark_fail(index: int) -> void:
+	if index < 0 or index >= _qte_key_boxes.size():
+		return
+	_qte_key_boxes[index].add_theme_stylebox_override("panel",
+		_make_qte_box_style(Color(0.4, 0.1, 0.1), Color(0.9, 0.2, 0.2)))
+	_qte_key_labels[index].add_theme_color_override("font_color", Color(1.0, 0.3, 0.3))
+
+
+func _qte_finish(success: bool) -> void:
+	_qte_active = false
+	if success:
+		_qte_feedback_label.text = "¡Perfecto!"
+		_qte_feedback_label.add_theme_color_override("font_color", Color(0.3, 1.0, 0.4))
+	else:
+		_qte_feedback_label.text = "¡Fallaste!"
+		_qte_feedback_label.add_theme_color_override("font_color", Color(1.0, 0.35, 0.35))
+	print("[BattleHUD] QTE finalizado: %s" % ("PERFECTO" if success else "FALLO"))
+	# Pequeño delay para que el jugador vea el feedback antes de continuar
+	await get_tree().create_timer(0.5).timeout
+	qte_completed.emit(success)
 
 
 # ── PUBLIC API ─────────────────────────────────────────────
@@ -410,6 +659,9 @@ func hide_all_menus() -> void:
 		equipo_panel.visible = false
 	if _target_prompt_label:
 		_target_prompt_label.visible = false
+	if _qte_panel:
+		_qte_active = false
+		_qte_panel.visible = false
 
 
 func hide_hud() -> void:

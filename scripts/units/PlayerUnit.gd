@@ -33,12 +33,14 @@ const MELEE_ANIMS := {
 
 # Animaciones a distancia a registrar
 const RANGED_ANIMS := {
-	"ranged_bow_draw": "Ranged_Bow_Draw",
-	"ranged_bow_release": "Ranged_Bow_Release",
-	"ranged_magic_shoot": "Ranged_Magic_Shoot",
+	"ranged_bow_draw":        "Ranged_Bow_Draw",
+	"ranged_bow_draw_up":     "Ranged_Bow_Draw_Up",
+	"ranged_bow_release":     "Ranged_Bow_Release",
+	"ranged_bow_release_up":  "Ranged_Bow_Release_Up",
+	"ranged_magic_shoot":     "Ranged_Magic_Shoot",
 	"ranged_magic_spellcast": "Ranged_Magic_Spellcasting",
-	"ranged_magic_summon": "Ranged_Magic_Summon",
-	"ranged_1h_shoot": "Ranged_1H_Shoot",
+	"ranged_magic_summon":    "Ranged_Magic_Summon",
+	"ranged_1h_shoot":        "Ranged_1H_Shoot",
 }
 
 # Animaciones avanzadas de movimiento

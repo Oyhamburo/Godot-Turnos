@@ -45,6 +45,7 @@ const RIG_MOVEMENT_GLB := "res://assets/KayKit_Skeletons_1.1_FREE/Animations/glt
 const _CHAR_ANIM_BASE := "res://assets/KayKit_Character_Animations_1.1/Animations/gltf/Rig_Medium/"
 const COMBAT_MELEE_GLB := _CHAR_ANIM_BASE + "Rig_Medium_CombatMelee.glb"
 const COMBAT_RANGED_GLB := _CHAR_ANIM_BASE + "Rig_Medium_CombatRanged.glb"
+const MOVEMENT_ADV_GLB := _CHAR_ANIM_BASE + "Rig_Medium_MovementAdvanced.glb"
 
 # Animaciones melee para enemigos
 const ENEMY_MELEE_ANIMS := {
@@ -56,10 +57,20 @@ const ENEMY_MELEE_ANIMS := {
 
 # Animaciones a distancia para enemigos
 const ENEMY_RANGED_ANIMS := {
-	"ranged_magic_shoot": "Ranged_Magic_Shoot",
-	"ranged_1h_shoot": "Ranged_1H_Shoot",
-	"ranged_bow_draw": "Ranged_Bow_Draw",
-	"ranged_bow_release": "Ranged_Bow_Release",
+	"ranged_magic_shoot":     "Ranged_Magic_Shoot",
+	"ranged_1h_shoot":        "Ranged_1H_Shoot",
+	"ranged_bow_draw":        "Ranged_Bow_Draw",
+	"ranged_bow_draw_up":     "Ranged_Bow_Draw_Up",
+	"ranged_bow_release":     "Ranged_Bow_Release",
+	"ranged_bow_release_up":  "Ranged_Bow_Release_Up",
+}
+
+# Animaciones avanzadas de movimiento (dodge)
+const ENEMY_DODGE_ANIMS := {
+	"dodge_backward": "Dodge_Backward",
+	"dodge_forward": "Dodge_Forward",
+	"dodge_left": "Dodge_Left",
+	"dodge_right": "Dodge_Right",
 }
 
 # ── Armas del pack KayKit Skeletons ──────────────────────
@@ -102,6 +113,8 @@ func _equip_default_weapon() -> void:
 			weapon_path = "res://data/weapons/skeleton_staff.tres"
 		"Skeleton_Minion":
 			weapon_path = "res://data/weapons/skeleton_axe.tres"
+		"Mannequin_Medium":
+			weapon_path = "res://data/weapons/mannequin_fists.tres"
 		_:
 			weapon_path = "res://data/weapons/skeleton_blade.tres"
 	if ResourceLoader.exists(weapon_path):
@@ -116,6 +129,8 @@ func _setup_combat_animations() -> void:
 		_setup_rig_animations(COMBAT_MELEE_GLB, ENEMY_MELEE_ANIMS)
 	if ResourceLoader.exists(COMBAT_RANGED_GLB):
 		_setup_rig_animations(COMBAT_RANGED_GLB, ENEMY_RANGED_ANIMS)
+	if ResourceLoader.exists(MOVEMENT_ADV_GLB):
+		_setup_rig_animations(MOVEMENT_ADV_GLB, ENEMY_DODGE_ANIMS)
 	# Las animaciones de ataque ahora vienen del anim_name en WeaponData.abilities
 
 

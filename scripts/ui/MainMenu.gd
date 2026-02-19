@@ -2,6 +2,7 @@ extends Control
 
 const MAP_SCENE := "res://scenes/ExploreMap.tscn"
 const BATTLE_SCENE := "res://scenes/battle/BattleScene.tscn"
+const WEAPON_PREVIEW_SCENE := "res://scenes/WeaponPreview.tscn"
 const BATTLES_DIR := "res://data/battles/"
 
 const _BattleConfig = preload("res://scripts/battle/data/battle_config.gd")
@@ -12,10 +13,12 @@ const _BattleEncounterConfig = preload("res://scripts/battle/data/battle_encount
 @onready var battle_option: OptionButton = %BattleOption
 @onready var options_button: Button = %OptionsButton
 @onready var options_panel: Control = %OptionsPanel
+@onready var weapon_preview_button: Button = %WeaponPreviewButton
 
 func _ready() -> void:
 	map_button.pressed.connect(_on_map_pressed)
 	battle_button.pressed.connect(_on_battle_pressed)
+	weapon_preview_button.pressed.connect(_on_weapon_preview_pressed)
 	options_button.pressed.connect(_on_options_pressed)
 	options_panel.visible = false
 	_populate_battle_options()
@@ -67,6 +70,9 @@ func _on_battle_pressed() -> void:
 	else:
 		BattleLauncher.set_config_path("")
 	get_tree().change_scene_to_file(BATTLE_SCENE)
+
+func _on_weapon_preview_pressed() -> void:
+	get_tree().change_scene_to_file(WEAPON_PREVIEW_SCENE)
 
 func _on_options_pressed() -> void:
 	options_panel.visible = true

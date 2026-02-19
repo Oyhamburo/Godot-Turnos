@@ -13,6 +13,7 @@ var world_position: Vector3 = Vector3.ZERO
 var _is_range_highlighted: bool = false          # true cuando el tile está en rango de movimiento
 var _is_blocked_range_highlighted: bool = false  # true cuando es walkable pero fuera de rango
 var _is_attack_range_highlighted: bool = false   # true cuando el tile está en rango de ataque (naranja)
+var _is_aoe_preview_highlighted: bool = false    # true cuando el tile está en la zona AoE (púrpura)
 
 # Referencia al MeshInstance3D del piso (guardada en setup_floor para highlight directo)
 var _floor_mesh: MeshInstance3D = null
@@ -181,6 +182,42 @@ func set_attack_range_highlight(on: bool) -> void:
 			mat.albedo_color = _floor_albedo_original
 
 
+## Resalta el tile en púrpura (preview de zona AoE del ataque).
+func set_aoe_preview_highlight(on: bool) -> void:
+	_is_aoe_preview_highlighted = on
+	if not _floor_mesh:
+		return
+	var mat: StandardMaterial3D = _floor_mesh.material_override as StandardMaterial3D
+	if not mat:
+		return
+	if on:
+		mat.emission_enabled = true
+		mat.emission = Color(0.8, 0.2, 0.9)
+		mat.emission_energy_multiplier = 2.5
+		mat.albedo_color = Color(0.85, 0.35, 1.0, 1.0)
+	else:
+		# Restaurar al highlight que había debajo (naranja de rango, etc.)
+		if _is_attack_range_highlighted:
+			mat.emission_enabled = true
+			mat.emission = Color(0.9, 0.45, 0.0)
+			mat.emission_energy_multiplier = 1.8
+			mat.albedo_color = Color(1.0, 0.55, 0.1, 1.0)
+		elif _is_range_highlighted:
+			mat.emission_enabled = true
+			mat.emission = Color(0.0, 0.9, 0.2)
+			mat.emission_energy_multiplier = 2.2
+			mat.albedo_color = Color(0.3, 1.0, 0.35, 1.0)
+		elif _is_blocked_range_highlighted:
+			mat.emission_enabled = true
+			mat.emission = Color(0.8, 0.05, 0.05)
+			mat.emission_energy_multiplier = 1.0
+			mat.albedo_color = Color(1.0, 0.3, 0.3, 1.0)
+		else:
+			mat.emission_enabled = false
+			mat.emission_energy_multiplier = 0.0
+			mat.albedo_color = _floor_albedo_original
+
+
 ## Muestra hover sobre el tile. is_valid=true → verde (puede moverse), false → naranja (fuera de rango).
 ## Funciona sobre CUALQUIER tile, no solo los que están en rango.
 func set_hover_highlighted(on: bool, is_valid: bool = true) -> void:
@@ -206,7 +243,12 @@ func set_hover_highlighted(on: bool, is_valid: bool = true) -> void:
 	else:
 		_stop_cursor_bob()
 		# Restaurar estado previo del piso
-		if _is_range_highlighted:
+		if _is_aoe_preview_highlighted:
+			mat.emission_enabled = true
+			mat.emission = Color(0.8, 0.2, 0.9)
+			mat.emission_energy_multiplier = 2.5
+			mat.albedo_color = Color(0.85, 0.35, 1.0, 1.0)
+		elif _is_range_highlighted:
 			mat.emission_enabled = true
 			mat.emission = Color(0.0, 0.9, 0.2)
 			mat.emission_energy_multiplier = 2.2

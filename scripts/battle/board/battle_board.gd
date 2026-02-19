@@ -251,7 +251,7 @@ func highlight_attack_range(origin: Vector2i, atk_range: int) -> void:
 				tile.set_attack_range_highlight(true)
 
 
-## Limpia el highlight de todos los tiles del tablero (verde, rojo, naranja y hover).
+## Limpia el highlight de todos los tiles del tablero (verde, rojo, naranja, púrpura AoE y hover).
 func clear_all_highlights() -> void:
 	for tile in tiles.values():
 		if tile is Tile:
@@ -259,6 +259,34 @@ func clear_all_highlights() -> void:
 			tile.set_hover_highlighted(false)
 			tile.set_blocked_range_highlight(false)
 			tile.set_attack_range_highlight(false)
+			tile.set_aoe_preview_highlight(false)
+
+
+## Devuelve todas las coordenadas dentro del radio AoE (Manhattan) desde el centro.
+## Incluye el centro. Solo tiles existentes en el tablero.
+func get_aoe_coords(center: Vector2i, radius: int) -> Array[Vector2i]:
+	var result: Array[Vector2i] = []
+	for coord in tiles:
+		if get_tile_distance(coord, center) <= radius:
+			result.append(coord)
+	return result
+
+
+## Resalta en púrpura los tiles dentro de la zona AoE (preview al hacer hover).
+func highlight_aoe_preview(center: Vector2i, radius: int) -> void:
+	clear_aoe_preview()
+	var aoe_coords: Array[Vector2i] = get_aoe_coords(center, radius)
+	for coord in aoe_coords:
+		var tile: Tile = get_tile_at(coord)
+		if tile:
+			tile.set_aoe_preview_highlight(true)
+
+
+## Limpia el highlight púrpura AoE de todos los tiles.
+func clear_aoe_preview() -> void:
+	for tile in tiles.values():
+		if tile is Tile:
+			tile.set_aoe_preview_highlight(false)
 
 
 ## Busca las coordenadas del tile que ocupa una unidad.
