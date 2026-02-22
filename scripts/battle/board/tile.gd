@@ -276,11 +276,11 @@ func _start_cursor_bob(is_valid: bool) -> void:
 		var box := BoxMesh.new()
 		box.size = Vector3(0.25, 0.18, 0.25)
 		_cursor_indicator.mesh = box
-		var cmat := StandardMaterial3D.new()
-		cmat.albedo_color = Color(1.0, 1.0, 1.0, 0.9)
-		cmat.emission_enabled = true
-		cmat.emission_energy_multiplier = 2.0
-		_cursor_indicator.material_override = cmat
+		var init_mat := StandardMaterial3D.new()
+		init_mat.albedo_color = Color(1.0, 1.0, 1.0, 0.9)
+		init_mat.emission_enabled = true
+		init_mat.emission_energy_multiplier = 2.0
+		_cursor_indicator.material_override = init_mat
 		add_child(_cursor_indicator)
 
 	var cmat: StandardMaterial3D = _cursor_indicator.material_override as StandardMaterial3D

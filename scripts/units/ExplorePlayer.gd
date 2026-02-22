@@ -5,6 +5,7 @@ extends Node3D
 ##
 
 signal move_finished
+signal move_step_finished(hex: Vector2i)
 
 const MOVE_DURATION := 1.0
 const RIG_GENERAL := "res://assets/KayKit_Adventurers_2.0_FREE/Animations/gltf/Rig_Medium/Rig_Medium_General.glb"
@@ -15,6 +16,7 @@ enum State { IDLE, WALKING }
 var _current_hex: Vector2i = Vector2i(0, 0)
 var _move_tween: Tween
 var _state: State = State.IDLE
+var _move_path_queue: Array[Vector2i] = []
 
 @onready var visual: Node3D = $Visual
 @onready var _ap: AnimationPlayer = $Visual/AnimationPlayer
@@ -48,6 +50,39 @@ func move_to_hex(hex: Vector2i) -> void:
 	_move_tween.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
 	_move_tween.tween_property(self, "global_position", target_pos, MOVE_DURATION)
 	_move_tween.tween_callback(_on_move_done)
+
+## Mueve el jugador por un camino de hexes paso a paso.
+## 'camino' contiene los hexes a visitar en orden (sin incluir la posición actual).
+func move_along_path(camino: Array[Vector2i]) -> void:
+	if camino.is_empty():
+		emit_signal("move_finished")
+		return
+	if _move_tween and _move_tween.is_valid() and _move_tween.is_running():
+		return
+	_state = State.WALKING
+	if _ap and _ap.has_animation("walk"):
+		_ap.play("walk")
+	_move_path_queue = camino.duplicate()
+	_advance_path()
+
+func _advance_path() -> void:
+	if _move_path_queue.is_empty():
+		_on_move_done()
+		return
+	var siguiente_hex: Vector2i = _move_path_queue.pop_front()
+	var target_pos: Vector3 = HexGrid.hex_to_world(siguiente_hex.x, siguiente_hex.y, 0.0)
+	_current_hex = siguiente_hex
+	var dir: Vector3 = (target_pos - global_position).normalized()
+	dir.y = 0.0
+	if dir.length_squared() > 0.01:
+		look_at(global_position + dir, Vector3.UP)
+	_move_tween = create_tween()
+	_move_tween.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	_move_tween.tween_property(self, "global_position", target_pos, MOVE_DURATION)
+	_move_tween.tween_callback(func() -> void:
+		emit_signal("move_step_finished", siguiente_hex)
+		_advance_path()
+	)
 
 func _on_move_done() -> void:
 	_state = State.IDLE

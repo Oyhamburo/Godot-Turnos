@@ -8,7 +8,7 @@ const _SpawnEntry = preload("res://scripts/battle/data/spawn_entry.gd")
 
 @export var width: int = 4
 @export var height: int = 4
-@export var tile_size: float = 2.0
+@export var tile_size: float = 4.0
 
 ## Coordenadas (x, y) de tiles bloqueados (impasables).
 @export var blocked_coords: Array[Vector2i] = []

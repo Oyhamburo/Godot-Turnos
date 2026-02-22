@@ -1,0 +1,15 @@
+[gd_resource type="Resource" script_class="ItemData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/data/ItemData.gd" id="1_script"]
+
+[resource]
+script = ExtResource("1_script")
+display_name = "Poción de Sigilo"
+item_type = 11
+description = "Vuelve invisible al usuario durante 2 turnos. No targeteable."
+effect_value = 0
+buy_price = 50
+sell_price = 25
+status_effect_tipo = 11
+status_effect_duracion = 2
+status_effect_potencia = 0

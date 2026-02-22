@@ -33,6 +33,11 @@ enum SlotMode { RIGHT_HAND, LEFT_HAND, TWO_HANDED }
 @export_range(0.0, 1.0) var bonus_evasion: float = 0.0
 @export_range(0.0, 1.0) var bonus_crit_chance: float = 0.0
 
+# ── Precio (tienda) ─────────────────────────────────────────
+@export_group("Precio")
+@export var buy_price: int = 0
+@export var sell_price: int = 0
+
 # ── Habilidades ─────────────────────────────────────────────
 # Cada entrada: { "display_name", "physical", "magic", "hit_chance", "range", "anim_name",
 #                  "aoe_radius" (opcional, int), "aoe_friendly_fire" (opcional, bool) }

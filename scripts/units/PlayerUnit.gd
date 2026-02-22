@@ -58,9 +58,16 @@ func _ready() -> void:
 	_setup_walk_animation()
 	_setup_combat_animations()
 	super._ready()
-	inventory = Inventory.new()
-	_equip_default_weapon()
-	_populate_default_inventory()
+	# Usar el inventario global del GameManager si está disponible
+	var gm: Node = Engine.get_main_loop().root.get_node_or_null("GameManager")
+	if gm and gm.get("player_inventory") != null:
+		inventory = gm.player_inventory
+	else:
+		# Fallback: crear inventario local (para testing sin autoload)
+		inventory = Inventory.new()
+		_equip_default_weapon()
+		_populate_default_inventory()
+	_aplicar_armas_del_inventario()
 	set_animation_state(AnimState.SPAWN)
 
 
@@ -122,6 +129,17 @@ func _populate_default_inventory() -> void:
 			var w: WeaponData = load(path) as WeaponData
 			if w and not inventory.weapons.has(w):
 				inventory.add_weapon(w)
+
+
+## Aplica visualmente las armas que ya están equipadas en el inventario global.
+## No modifica el inventario; solo llama equip_weapon_data() para mostrar los modelos 3D.
+func _aplicar_armas_del_inventario() -> void:
+	if inventory == null:
+		return
+	if inventory.equipped_right != null:
+		equip_weapon_data(inventory.equipped_right, WeaponSlot.RIGHT_HAND)
+	if inventory.equipped_left != null and inventory.equipped_left != inventory.equipped_right:
+		equip_weapon_data(inventory.equipped_left, WeaponSlot.LEFT_HAND)
 
 
 ## Carga animaciones de combate del pack KayKit Character Animations 1.1.

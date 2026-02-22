@@ -1,8 +1,9 @@
-[gd_scene load_steps=4 format=3 uid="uid://d4b1v3k5bap2s"]
+[gd_scene load_steps=5 format=3 uid="uid://d4b1v3k5bap2s"]
 
 [ext_resource type="Script" uid="uid://csc3eixvf4q51" path="res://scripts/ui/MainMenu.gd" id="1_mm01"]
 [ext_resource type="Theme" uid="uid://3c22hxeo5t8" path="res://ui/theme.tres" id="2_them1"]
 [ext_resource type="PackedScene" uid="uid://c3s8l8xkq3g2m" path="res://scenes/ui/OptionsPanel.tscn" id="3_optp"]
+[ext_resource type="Script" path="res://scripts/ui/StatusInfoPanel.gd" id="4_sip"]
 
 [node name="MainMenu" type="Control"]
 layout_mode = 3
@@ -47,6 +48,13 @@ layout_mode = 2
 size_flags_horizontal = 3
 text = "Explorar mapa"
 
+[node name="ThirdPersonButton" type="Button" parent="Safe/Center/VBox"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(520, 84)
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Explorar (3ra persona)"
+
 [node name="BattleRow" type="HBoxContainer" parent="Safe/Center/VBox"]
 layout_mode = 2
 theme_override_constants/separation = 12
@@ -71,6 +79,20 @@ layout_mode = 2
 size_flags_horizontal = 3
 text = "Vista previa de armas"
 
+[node name="RogueButton" type="Button" parent="Safe/Center/VBox"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(520, 84)
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Modo RogueLike"
+
+[node name="StatusInfoButton" type="Button" parent="Safe/Center/VBox"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(520, 84)
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Info: Efectos de Estado"
+
 [node name="OptionsButton" type="Button" parent="Safe/Center/VBox"]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(520, 84)
@@ -82,3 +104,8 @@ text = "Opciones"
 unique_name_in_owner = true
 visible = false
 anchors_preset = 0
+
+[node name="StatusInfoPanel" type="Control" parent="."]
+unique_name_in_owner = true
+visible = false
+script = ExtResource("4_sip")

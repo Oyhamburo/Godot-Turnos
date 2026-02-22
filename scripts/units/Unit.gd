@@ -64,6 +64,9 @@ var inventory: Inventory = null
 ## true cuando la unidad usó "Defender" este turno: anula el siguiente golpe recibido.
 var _blocking: bool = false
 
+## Gestor de efectos de estado (veneno, stun, buffs, etc.). Composición.
+var efectos_manager: StatusEffectManager = null
+
 ## Modificadores QTE (temporales, por ataque del player)
 var _qte_hit_bonus: float = 0.0      # +0.10 si perfect
 var _qte_crit_bonus: float = 0.0     # +0.15 si perfect
@@ -131,6 +134,7 @@ func _ready() -> void:
 	else:
 		_create_default_stats()
 	_ensure_stats()
+	efectos_manager = StatusEffectManager.new(self)
 	add_floating_hud()
 	_start_position = global_position
 	_start_rotation = global_rotation
@@ -244,6 +248,9 @@ func add_floating_hud() -> void:
 	if hud is FloatingHUD:
 		hud.setup(stats, display_name, team)
 		stats.hp_changed.connect(_on_stats_hp_changed)
+		# Conectar efectos de estado al HUD para mostrar emojis
+		if efectos_manager:
+			hud.conectar_efectos(efectos_manager)
 		print("[Unit] %s: FloatingHUD creado - HP %d/%d - team: %d - pos: %s" % [display_name, stats.hp, stats.max_hp, team, hud.position])
 	else:
 		print("[Unit] %s: hud instanciado pero no es FloatingHUD!" % display_name)
@@ -288,24 +295,26 @@ func _find_skeleton_recursive(node: Node) -> Skeleton3D:
 	return null
 
 
-## Crea los BoneAttachment3D en handslot.r y handslot.l del esqueleto.
+## Crea los BoneAttachment3D en handslot.r/l (o hand.r/l como fallback).
 ## Llamado desde _ready(), después de que el GLB ya está instanciado.
 func _setup_weapon_slots() -> void:
 	_skeleton = _find_skeleton_recursive(visual)
 	if not _skeleton:
 		return
 
-	var bone_r := _skeleton.find_bone("handslot.r")
-	var bone_l := _skeleton.find_bone("handslot.l")
+	# Intentar primero "handslot.r/l" (Mannequin_Large, Adventurers),
+	# si no existe usar "hand.r/l" (Mannequin_Medium, Skeletons sin slot dedicado).
+	var name_r := "handslot.r" if _skeleton.find_bone("handslot.r") >= 0 else "hand.r"
+	var name_l := "handslot.l" if _skeleton.find_bone("handslot.l") >= 0 else "hand.l"
 
-	if bone_r >= 0:
+	if _skeleton.find_bone(name_r) >= 0:
 		_weapon_attachment_r = BoneAttachment3D.new()
-		_weapon_attachment_r.bone_name = "handslot.r"
+		_weapon_attachment_r.bone_name = name_r
 		_skeleton.add_child(_weapon_attachment_r)
 
-	if bone_l >= 0:
+	if _skeleton.find_bone(name_l) >= 0:
 		_weapon_attachment_l = BoneAttachment3D.new()
-		_weapon_attachment_l.bone_name = "handslot.l"
+		_weapon_attachment_l.bone_name = name_l
 		_skeleton.add_child(_weapon_attachment_l)
 
 
@@ -620,6 +629,25 @@ func _on_animation_finished(_anim_name: StringName) -> void:
 	if _anim_state == AnimState.SPAWN or _anim_state == AnimState.HIT or _anim_state == AnimState.ATTACK:
 		set_animation_state(AnimState.IDLE)
 
+## Cura HP respetando el efecto ENFERMEDAD (bloquea curación).
+## Usar este método en vez de stats.heal() para que ENFERMEDAD funcione.
+func curar_hp(cantidad: int) -> void:
+	if efectos_manager and efectos_manager.tiene_efecto(StatusEffect.Tipo.ENFERMEDAD):
+		show_floating_text("🤢 ¡No puede curarse!", Color(0.6, 0.75, 0.1))
+		return
+	if stats:
+		stats.heal(cantidad)
+
+
+## Aplica un efecto de estado a esta unidad (wrapper de conveniencia).
+## Devuelve true si se aplicó, false si fue bloqueado por inmunidad.
+func aplicar_efecto_estado(tipo: StatusEffect.Tipo, duracion: int, potencia: int = 0, fuente = null) -> bool:
+	if not efectos_manager:
+		return false
+	var efecto := StatusEffect.new(tipo, duracion, potencia, fuente)
+	return efectos_manager.aplicar_efecto(efecto)
+
+
 func take_damage(amount: int) -> void:
 	take_damage_split(amount, 0)
 
@@ -639,6 +667,8 @@ func die() -> void:
 		return
 	print("[Unit] %s: murio" % display_name)
 	alive = false
+	if efectos_manager:
+		efectos_manager.limpiar_todos()
 	set_selected(false)
 	collider.disabled = true
 	set_physics_process(false)
@@ -726,12 +756,16 @@ func attack_target(target: Unit, ability_index: int = 0) -> void:
 	_face_target(target.global_position)
 
 	if is_melee:
-		# Melee: acercarse al enemigo
+		# Melee: acercarse al enemigo con animación de caminar
 		var approach := _approach_position(target)
+		var approach_dist: float = global_position.distance_to(approach)
+		var approach_dur: float = clampf(approach_dist / 4.0, 0.25, 1.0)
+		set_animation_state(AnimState.WALK)
 		var t_move := create_tween()
 		t_move.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
-		t_move.tween_property(self, "global_position", approach, 0.35)
+		t_move.tween_property(self, "global_position", approach, approach_dur)
 		await t_move.finished
+		set_animation_state(AnimState.NONE)
 
 	# El daño se aplica internamente en _play_attack_animation:
 	# - Melee: a ~55% de la animación (cuando el arma conecta)
@@ -739,10 +773,14 @@ func attack_target(target: Unit, ability_index: int = 0) -> void:
 	await _play_attack_animation(ability_index, target)
 
 	if is_melee:
-		# Solo volver si se acercó
+		# Volver a posición original con animación de caminar
+		_face_target(start_pos)
+		var return_dist: float = global_position.distance_to(start_pos)
+		var return_dur: float = clampf(return_dist / 4.0, 0.25, 1.0)
+		set_animation_state(AnimState.WALK)
 		var t_back := create_tween()
 		t_back.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN_OUT)
-		t_back.tween_property(self, "global_position", start_pos, 0.35)
+		t_back.tween_property(self, "global_position", start_pos, return_dur)
 		await t_back.finished
 
 	# Restore original rotation por el camino más corto (evita giro de 360° por Euler ±PI).
@@ -799,6 +837,7 @@ func _resolve_attack_damage(target: Unit, ability_index: int) -> void:
 	if target._blocking:
 		target._blocking = false
 		target.show_floating_text("¡Bloqueado!", Color(0.3, 0.7, 1.0))
+		target.play_dodge_animation(global_position)  # Reacción visual de bloqueo
 		# Registrar: atacante falló (bloqueado), defensor bloqueó
 		stats.battle_misses += 1
 		target.stats.battle_blocks += 1
@@ -811,7 +850,13 @@ func _resolve_attack_damage(target: Unit, ability_index: int) -> void:
 		stats.battle_misses += 1
 		target.stats.battle_evades += 1
 		return
-	var effective_hit: float = ab.get("hit_chance", 1.0) + _qte_hit_bonus
+	# ── ELECTROCUTADO: penalización drástica al hit_chance del atacante ──
+	var penalizacion_elec: float = 0.0
+	if efectos_manager and efectos_manager.tiene_efecto(StatusEffect.Tipo.ELECTROCUTADO):
+		var eff_elec: StatusEffect = efectos_manager.obtener_efecto(StatusEffect.Tipo.ELECTROCUTADO)
+		if eff_elec:
+			penalizacion_elec = eff_elec.potencia / 100.0
+	var effective_hit: float = ab.get("hit_chance", 1.0) + _qte_hit_bonus - penalizacion_elec
 	if randf() > effective_hit:
 		target.show_floating_text("Falló", Color(0.55, 0.55, 0.55))
 		# Registrar: atacante falló
@@ -862,6 +907,29 @@ func _resolve_attack_damage(target: Unit, ability_index: int) -> void:
 		target.show_floating_text("Resist. %d" % magic_blocked, Color(0.2, 0.75, 1.0), v_offset, popup_delay)
 
 	target.take_damage_split(phys_taken, magic_taken)
+
+	# ── ESPINAS: refleja daño fijo al atacante cuando el target tiene espinas ──
+	if target.efectos_manager and target.efectos_manager.tiene_efecto(StatusEffect.Tipo.ESPINAS):
+		var esp: StatusEffect = target.efectos_manager.obtener_efecto(StatusEffect.Tipo.ESPINAS)
+		if esp and esp.potencia > 0 and total_dealt > 0:
+			show_floating_text("🌵 -%d" % esp.potencia, Color(0.4, 0.7, 0.2))
+			take_damage_split(esp.potencia, 0)
+
+	# ── ESPEJO: refleja 100% del daño recibido al atacante ──
+	if target.efectos_manager and target.efectos_manager.tiene_efecto(StatusEffect.Tipo.ESPEJO):
+		if total_dealt > 0:
+			show_floating_text("🪞 -%d" % total_dealt, Color(0.7, 0.85, 1.0))
+			take_damage_split(total_dealt, 0)
+
+	# ── Aplicar efectos de estado de la habilidad del arma ──
+	for efecto_dict in ab.get("status_effects", []):
+		var chance: float = efecto_dict.get("probabilidad", 1.0)
+		if randf() < chance:
+			target.aplicar_efecto_estado(
+				efecto_dict.get("tipo", 0) as StatusEffect.Tipo,
+				efecto_dict.get("duracion", 2),
+				efecto_dict.get("potencia", 0),
+				self)
 
 ## Muestra un popup flotante sobre la unidad (esquive, daño, bloqueos, etc.).
 ## delay_sec: segundos antes de mostrar este popup (para escalonar múltiples popups).
@@ -956,6 +1024,42 @@ func _get_bow_mesh() -> MeshInstance3D:
 	if bow_root is MeshInstance3D:
 		return bow_root as MeshInstance3D
 	return bow_root.find_child("*", true, false) as MeshInstance3D
+
+
+## Reproduce animación de bloqueo con tween del escudo desde (0,0,0) hasta los offsets.
+## Al terminar la animación, el escudo regresa suavemente a (0,0,0).
+## Usado por battle_flow y weapon_preview para mantener una sola implementación.
+func play_block_animation(anim_name: String, block_pos: Vector3, block_rot: Vector3) -> void:
+	var ap: AnimationPlayer = _get_anim_ap()
+	if not ap or not ap.has_animation(anim_name):
+		return
+
+	# Buscar el nodo del escudo (izquierda primero, luego derecha)
+	var shield_node: Node3D = _equipped_weapon_l if is_instance_valid(_equipped_weapon_l) else _equipped_weapon_r
+
+	# Tween de subida: 0.2s lineal hacia la posición de guardia
+	if is_instance_valid(shield_node):
+		shield_node.position = Vector3.ZERO
+		shield_node.rotation = Vector3.ZERO
+		var tw := create_tween()
+		tw.set_parallel(true)
+		tw.set_trans(Tween.TRANS_LINEAR)
+		tw.tween_property(shield_node, "position", block_pos, 0.2)
+		tw.tween_property(shield_node, "rotation", block_rot, 0.2)
+
+	_stop_idle()
+	_anim_state = AnimState.ATTACK
+	ap.play(anim_name)
+	await ap.animation_finished
+
+	# Tween de regreso: 0.2s lineal de vuelta a (0,0,0)
+	if is_instance_valid(shield_node):
+		var tw_back := create_tween()
+		tw_back.set_parallel(true)
+		tw_back.set_trans(Tween.TRANS_LINEAR)
+		tw_back.tween_property(shield_node, "position", Vector3.ZERO, 0.2)
+		tw_back.tween_property(shield_node, "rotation", Vector3.ZERO, 0.2)
+		await tw_back.finished
 
 
 ## Encadena Draw → Release y lanza el proyectil al inicio del Release.
@@ -1294,6 +1398,7 @@ func reset_qte_modifiers() -> void:
 
 ## Reproduce una animación de dodge direccional (fire-and-forget, no bloquea el flujo).
 ## Elige dodge_backward/forward/left/right según la posición del atacante.
+## Al terminar la animación vuelve automáticamente a idle.
 func play_dodge_animation(attacker_pos: Vector3) -> void:
 	var ap: AnimationPlayer = _get_anim_ap()
 	if not ap:
@@ -1310,7 +1415,12 @@ func play_dodge_animation(attacker_pos: Vector3) -> void:
 	elif abs(cross_y) > 0.5:
 		dodge_name = "dodge_left" if cross_y > 0 else "dodge_right"
 
+	# Marcar _anim_state como HIT para que _on_animation_finished vuelva a IDLE al terminar
 	if ap.has_animation(dodge_name):
+		_stop_idle()
+		_anim_state = AnimState.HIT
 		ap.play(dodge_name)
 	elif ap.has_animation("dodge_backward"):
+		_stop_idle()
+		_anim_state = AnimState.HIT
 		ap.play("dodge_backward")

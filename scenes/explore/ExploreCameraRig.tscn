@@ -1,0 +1,11 @@
+[gd_scene load_steps=2 format=3 uid="uid://explore_camera_rig"]
+
+[ext_resource type="Script" path="res://scripts/map/explore_camera_rig.gd" id="1_script"]
+
+[node name="ExploreCameraRig" type="Node3D"]
+script = ExtResource("1_script")
+
+[node name="Camera3D" type="Camera3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 0.866025, 0.5, 0, -0.5, 0.866025, 10, 9, 10)
+current = true
+fov = 50.0

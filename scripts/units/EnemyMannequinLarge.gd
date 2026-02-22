@@ -27,6 +27,7 @@ const MELEE_ANIMS := {
 	"melee_1h_stab": "Melee_1H_Attack_Stab",
 	"melee_2h_slice": "Melee_2H_Attack_Slice",
 	"melee_kick": "Melee_Unarmed_Attack_Kick",
+	"melee_punch": "Melee_Unarmed_Attack_Punch_A",
 }
 
 # Animaciones de dodge

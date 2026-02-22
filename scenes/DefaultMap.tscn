@@ -1,122 +1,161 @@
-[gd_scene load_steps=7 format=3 uid="uid://defaultmap01"]
+[gd_scene load_steps=8 format=3 uid="uid://defaultmap01"]
 
 [ext_resource type="Script" uid="uid://brilrji5h8v24" path="res://scripts/map/DefaultMap.gd" id="1_script"]
 [ext_resource type="PackedScene" uid="uid://djjkn676h0agl" path="res://scenes/hex/HexGrass.tscn" id="2_hex"]
-[ext_resource type="PackedScene" uid="uid://djjkk475o4kfa" path="res://scenes/hex/HexRoadA.tscn" id="3_se4aq"]
-[ext_resource type="PackedScene" path="res://scenes/buildings/BuildingStageA.tscn" id="5_6jtbq"]
-[ext_resource type="PackedScene" path="res://scenes/buildings/BuildingGrain.tscn" id="6_6jtbq"]
-[ext_resource type="PackedScene" path="res://scenes/buildings/BuildingDirt.tscn" id="6_xipch"]
+[ext_resource type="PackedScene" path="res://scenes/buildings/WallCornerAGate.tscn" id="3_se4aq"]
+[ext_resource type="Script" uid="uid://xd4bybj3v60j" path="res://scripts/map/gate_building.gd" id="4_gate_script"]
+[ext_resource type="PackedScene" path="res://scenes/buildings/WallStraight.tscn" id="5_65y0q"]
+[ext_resource type="PackedScene" path="res://scenes/buildings/BuildingDirt.tscn" id="6_dirt"]
+[ext_resource type="Script" path="res://scripts/map/battle_trigger.gd" id="7_battle_script"]
 
 [node name="DefaultMap" type="Node3D"]
 script = ExtResource("1_script")
 
 [node name="Tiles" type="Node3D" parent="."]
 
-[node name="Hex_-1_2" parent="Tiles" instance=ExtResource("2_hex")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 3)
-
-[node name="Hex_-1_-1" parent="Tiles" instance=ExtResource("2_hex")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -2.598076, 0, -1.5)
-
-[node name="Hex_-2_-1" parent="Tiles" instance=ExtResource("2_hex")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -4.3301272, 0, -1.5)
-
-[node name="Hex_-2_0" parent="Tiles" instance=ExtResource("2_hex")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -3.4641016, 0, 0)
-
-[node name="Hex_-2_1" parent="Tiles" instance=ExtResource("2_hex")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -2.598076, 0, 1.5)
-
-[node name="Hex_-2_2" parent="Tiles" instance=ExtResource("2_hex")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.7320508, 0, 3)
-
-[node name="Hex_2_2" parent="Tiles" instance=ExtResource("2_hex")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 5.196152, 0, 3)
-
-[node name="Hex_2_1" parent="Tiles" instance=ExtResource("2_hex")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 4.3301272, 0, 1.5)
-
-[node name="Hex_2_0" parent="Tiles" instance=ExtResource("2_hex")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 3.4641016, 0, 0)
-
-[node name="Hex_2_-1" parent="Tiles" instance=ExtResource("2_hex")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2.598076, 0, -1.5)
-
-[node name="Hex_2_-2" parent="Tiles" instance=ExtResource("2_hex")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.7320508, 0, -3)
-
-[node name="Hex_1_-2" parent="Tiles" instance=ExtResource("2_hex")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -3)
-
-[node name="Hex_0_-2" parent="Tiles" instance=ExtResource("2_hex")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.7320508, 0, -3)
-
-[node name="Hex_-1_-2" parent="Tiles" instance=ExtResource("2_hex")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -3.4641016, 0, -3)
-
-[node name="Hex_-2_-2" parent="Tiles" instance=ExtResource("2_hex")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -5.196152, 0, -3)
-
-[node name="Hex_1_2" parent="Tiles" instance=ExtResource("3_se4aq")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 3.4641016, 0, 3)
-
-[node name="Hex_1_1" parent="Tiles" instance=ExtResource("3_se4aq")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2.598076, 0, 1.5)
-
-[node name="Hex_1_0" parent="Tiles" instance=ExtResource("3_se4aq")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.7320508, 0, 0)
-
-[node name="Hex_1_-1" parent="Tiles" instance=ExtResource("3_se4aq")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.8660254, 0, -1.5)
-
-[node name="Hex_0_-1" parent="Tiles" instance=ExtResource("2_hex")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.8660254, 0, -1.5)
-
-[node name="Hex_-1_0" parent="Tiles" instance=ExtResource("2_hex")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.7320508, 0, 0)
-
 [node name="Hex_0_0" parent="Tiles" instance=ExtResource("2_hex")]
 
-[node name="Hex_-1_1" parent="Tiles" instance=ExtResource("2_hex")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.8660254, 0, 1.5)
+[node name="Hex_1_0" parent="Tiles" instance=ExtResource("2_hex")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.7320508, 0, 0)
+
+[node name="Hex_1_1" parent="Tiles" instance=ExtResource("2_hex")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2.598076, 0, 1.5)
 
 [node name="Hex_0_1" parent="Tiles" instance=ExtResource("2_hex")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.8660254, 0, 1.5)
 
+[node name="Hex_-1_1" parent="Tiles" instance=ExtResource("2_hex")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.8660254, 0, 1.5)
+
+[node name="Hex_-1_0" parent="Tiles" instance=ExtResource("2_hex")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.7320508, 0, 0)
+
+[node name="Hex_-1_-1" parent="Tiles" instance=ExtResource("2_hex")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -2.598076, 0, -1.5)
+
+[node name="Hex_0_-1" parent="Tiles" instance=ExtResource("2_hex")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.8660254, 0, -1.5)
+
+[node name="Hex_1_-1" parent="Tiles" instance=ExtResource("2_hex")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.8660254, 0, -1.5)
+
+[node name="Hex_2_-1" parent="Tiles" instance=ExtResource("2_hex")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2.598076, 0, -1.5)
+
+[node name="Hex_2_0" parent="Tiles" instance=ExtResource("2_hex")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 3.4641016, 0, 0)
+
+[node name="Hex_2_1" parent="Tiles" instance=ExtResource("2_hex")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 4.3301272, 0, 1.5)
+
+[node name="Hex_2_2" parent="Tiles" instance=ExtResource("2_hex")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 5.196152, 0, 3)
+
+[node name="Hex_1_2" parent="Tiles" instance=ExtResource("2_hex")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 3.4641016, 0, 3)
+
 [node name="Hex_0_2" parent="Tiles" instance=ExtResource("2_hex")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.7320508, 0, 3)
 
+[node name="Hex_-1_2" parent="Tiles" instance=ExtResource("2_hex")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 3)
+
+[node name="Hex_-2_2" parent="Tiles" instance=ExtResource("2_hex")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.7320508, 0, 3)
+
+[node name="Hex_-2_1" parent="Tiles" instance=ExtResource("2_hex")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -2.598076, 0, 1.5)
+
+[node name="Hex_-2_0" parent="Tiles" instance=ExtResource("2_hex")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -3.4641016, 0, 0)
+
+[node name="Hex_-2_-1" parent="Tiles" instance=ExtResource("2_hex")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -4.3301272, 0, -1.5)
+
+[node name="Hex_-2_-2" parent="Tiles" instance=ExtResource("2_hex")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -5.196152, 0, -3)
+
+[node name="Hex_-1_-2" parent="Tiles" instance=ExtResource("2_hex")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -3.4641016, 0, -3)
+
+[node name="Hex_0_-2" parent="Tiles" instance=ExtResource("2_hex")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.7320508, 0, -3)
+
+[node name="Hex_1_-2" parent="Tiles" instance=ExtResource("2_hex")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -3)
+
+[node name="Hex_2_-2" parent="Tiles" instance=ExtResource("2_hex")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.7320508, 0, -3)
+
+[node name="Hex_3_-2" parent="Tiles" instance=ExtResource("2_hex")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 3.4641016, 0, -3)
+
+[node name="Hex_3_-1" parent="Tiles" instance=ExtResource("2_hex")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 4.3301272, 0, -1.5)
+
+[node name="Hex_3_0" parent="Tiles" instance=ExtResource("2_hex")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 5.196152, 0, 0)
+
+[node name="Hex_3_1" parent="Tiles" instance=ExtResource("2_hex")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 6.0621777, 0, 1.5)
+
+[node name="Hex_3_2" parent="Tiles" instance=ExtResource("2_hex")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 6.928203, 0, 3)
+
+[node name="Hex_1_3" parent="Tiles" instance=ExtResource("2_hex")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 4.3301272, 0, 4.5)
+
+[node name="Hex_2_3" parent="Tiles" instance=ExtResource("2_hex")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 6.0621777, 0, 4.5)
+
+[node name="Hex_3_3" parent="Tiles" instance=ExtResource("2_hex")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 7.7942286, 0, 4.5)
+
+[node name="Hex_0_3" parent="Tiles" instance=ExtResource("2_hex")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2.598076, 0, 4.5)
+
+[node name="Hex_-1_3" parent="Tiles" instance=ExtResource("2_hex")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.8660254, 0, 4.5)
+
+[node name="Hex_-2_3" parent="Tiles" instance=ExtResource("2_hex")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.8660254, 0, 4.5)
+
+[node name="Hex_-3_3" parent="Tiles" instance=ExtResource("2_hex")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -2.598076, 0, 4.5)
+
+[node name="Hex_-3_2" parent="Tiles" instance=ExtResource("2_hex")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -3.4641016, 0, 3)
+
+[node name="Hex_-3_1" parent="Tiles" instance=ExtResource("2_hex")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -4.3301272, 0, 1.5)
+
+[node name="Hex_-3_0" parent="Tiles" instance=ExtResource("2_hex")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -5.196152, 0, 0)
+
+[node name="Hex_-3_-1" parent="Tiles" instance=ExtResource("2_hex")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -6.0621777, 0, -1.5)
+
+[node name="Hex_-3_-2" parent="Tiles" instance=ExtResource("2_hex")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -6.928203, 0, -3)
+
 [node name="Buildings" type="Node3D" parent="."]
 
-[node name="Building_-1_-1" parent="Buildings" instance=ExtResource("6_xipch")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -2.598076, 0.02, -1.5)
+[node name="Building_0_3" parent="Buildings" instance=ExtResource("3_se4aq")]
+transform = Transform3D(-0.882283, 0, 0.47071943, 0, 1, 0, -0.47071943, 0, -0.882283, 2.598076, 0.02, 4.5)
+script = ExtResource("4_gate_script")
 
-[node name="Building_0_-1" parent="Buildings" instance=ExtResource("5_6jtbq")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.8660254, 0.02, -1.5)
+[node name="Building_1_3" type="Node3D" parent="Buildings" instance=ExtResource("5_65y0q")]
+transform = Transform3D(-0.99966234, 0, 0.02598509, 0, 1, 0, -0.02598509, 0, -0.99966234, 0.8666103, 0.02, 4.760768)
 
-[node name="Building_0_2" parent="Buildings" instance=ExtResource("6_xipch")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.7320508, 0.02, 3)
+[node name="Building_2_3" type="Node3D" parent="Buildings" instance=ExtResource("5_65y0q")]
+transform = Transform3D(-0.99966234, 0, 0.02598509, 0, 1, 0, -0.02598509, 0, -0.99966234, -0.8648553, 0.02, 4.7157607)
 
-[node name="Building_1_-1" parent="Buildings" instance=ExtResource("6_6jtbq")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.8660254, 0.02, -1.5)
+[node name="Building_-1_3" type="Node3D" parent="Buildings" instance=ExtResource("5_65y0q")]
+transform = Transform3D(-0.99966234, 0, 0.02598509, 0, 1, 0, -0.02598509, 0, -0.99966234, 4.329542, 0.02, 4.8507833)
 
-[node name="Building_1_0" parent="Buildings" instance=ExtResource("6_6jtbq")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.7320508, 0.02, 0)
+[node name="Building_-2_3" type="Node3D" parent="Buildings" instance=ExtResource("5_65y0q")]
+transform = Transform3D(-0.99966234, 0, 0.02598509, 0, 1, 0, -0.02598509, 0, -0.99966234, 6.0610085, 0.02, 4.8957906)
 
-[node name="Building_0_0" parent="Buildings" instance=ExtResource("6_6jtbq")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.02, 0)
-
-[node name="Building_-1_2" type="Node3D" parent="Buildings" instance=ExtResource("6_6jtbq")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.02, 3)
-
-[node name="Building_-1_1" type="Node3D" parent="Buildings" instance=ExtResource("6_6jtbq")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.8660254, 0.02, 1.5)
-
-[node name="Building_0_1" type="Node3D" parent="Buildings" instance=ExtResource("6_6jtbq")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.8660254, 0.02, 1.5)
-
-[node name="Building_1_1" type="Node3D" parent="Buildings" instance=ExtResource("6_6jtbq")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2.598076, 0.02, 1.5)
-
-[node name="Building_1_2" type="Node3D" parent="Buildings" instance=ExtResource("6_6jtbq")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 3.4641016, 0.02, 3)
+[node name="Building_-2_-2" parent="Buildings" instance=ExtResource("6_dirt")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -5.196152, 0, -3)
+script = ExtResource("7_battle_script")

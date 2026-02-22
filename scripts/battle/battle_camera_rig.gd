@@ -214,6 +214,62 @@ func _tween_to_offset_view(target: Vector3, offset: Vector3, view_name: String) 
 	)
 
 
+## Vista cinemática over-the-shoulder: cámara detrás del atacante mirando al objetivo.
+## Más cercana e inmersiva que combat_view, ideal para ver el combate desde la perspectiva del atacante.
+## mirror_lateral: false = player ataca (lateral derecha), true = enemigo ataca (lateral izquierda).
+func tween_to_cinematic_combat_view(attacker_pos: Vector3, target_pos: Vector3, mirror_lateral: bool = false) -> void:
+	_stop_current_tween()
+	if not _camera:
+		return
+
+	# Dirección atacante → target
+	var dir: Vector3 = (target_pos - attacker_pos)
+	dir.y = 0
+	if dir.length_squared() < 0.01:
+		dir = Vector3(0, 0, -1)
+	dir = dir.normalized()
+
+	# Perpendicular derecha en plano XZ (para offset lateral)
+	var perp: Vector3 = Vector3(-dir.z, 0, dir.x)
+	var lateral: float = -3.5 if mirror_lateral else 3.5
+
+	# Cámara detrás del atacante, elevada y desplazada lateralmente
+	var cam_pos: Vector3 = attacker_pos - dir * 3.5 + Vector3(0, 3.2, 0) + perp * lateral
+
+	# Mirar al target (torso, no pies)
+	var look_target: Vector3 = target_pos + Vector3(0, 1.0, 0)
+
+	_orbit_target = attacker_pos
+	_orbit_look_target = look_target
+
+	var from_polar: Vector3 = _cam_to_polar(attacker_pos)
+	var to_offset: Vector3 = cam_pos - attacker_pos
+	var to_polar: Vector3 = _offset_to_polar(to_offset)
+
+	var angle_diff: float = wrapf(to_polar.x - from_polar.x, -PI, PI)
+	var final_angle: float = from_polar.x + angle_diff
+
+	print("[Camera] cinematic_combat: attacker=%s target=%s" % [attacker_pos, target_pos])
+
+	_current_tween = create_tween()
+	_current_tween.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN_OUT)
+	_current_tween.tween_method(
+		func(t: float) -> void:
+			var angle: float = lerpf(from_polar.x, final_angle, t)
+			var r: float = lerpf(from_polar.y, to_polar.y, t)
+			var h: float = lerpf(from_polar.z, to_polar.z, t)
+			_camera.global_position = _orbit_target + Vector3(
+				cos(angle) * r,
+				h,
+				sin(angle) * r
+			)
+			# Interpolar look_at entre el atacante y el target para suavidad
+			var look_pos: Vector3 = _orbit_look_target
+			_camera.look_at(look_pos, Vector3.UP),
+		0.0, 1.0, COMBAT_TWEEN_DURATION
+	)
+
+
 ## Convierte un offset cartesiano a coordenadas polares: (ángulo_rad, radio_xz, altura_y).
 func _offset_to_polar(offset: Vector3) -> Vector3:
 	var angle: float = atan2(offset.z, offset.x)

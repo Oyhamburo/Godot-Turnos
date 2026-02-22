@@ -1,0 +1,12 @@
+[gd_resource type="Resource" script_class="ItemData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/data/ItemData.gd" id="1_script"]
+
+[resource]
+script = ExtResource("1_script")
+display_name = "Poción de Vida"
+item_type = 0
+description = "Restaura 40 puntos de vida."
+effect_value = 40
+buy_price = 30
+sell_price = 15

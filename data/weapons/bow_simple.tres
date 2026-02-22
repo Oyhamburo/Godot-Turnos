@@ -1,0 +1,25 @@
+[gd_resource type="Resource" script_class="WeaponData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/data/WeaponData.gd" id="1_script"]
+
+[resource]
+script = ExtResource("1_script")
+display_name = "Arco Corto"
+weapon_type = 1
+slot = 2
+scene_3d_path = "res://assets/KayKit_Adventurers_2.0_FREE/Assets/gltf/bow.gltf"
+hand_offset_pos = Vector3(0, 0, 0.04)
+hand_offset_rot = Vector3(1.5767, 3.1416, 0.1845)
+visual_hand = 1
+bonus_physical_damage = 3
+bonus_magic_damage = 0
+bonus_armor = 0
+bonus_magic_resist = 0
+bonus_speed = 2
+bonus_evasion = 0.03
+bonus_crit_chance = 0.03
+buy_price = 35
+sell_price = 14
+projectile_scene_path = "res://assets/KayKit_Adventurers_2.0_FREE/Assets/gltf/arrow_bow.gltf"
+projectile_bundle_path = "res://assets/KayKit_Adventurers_2.0_FREE/Assets/gltf/arrow_bow_bundle.gltf"
+abilities = [{"display_name": "Disparo Rápido", "physical": 6, "magic": 0, "hit_chance": 0.92, "range": 99, "anim_name": "ranged_bow_draw"}, {"display_name": "Ráfaga", "physical": 4, "magic": 0, "hit_chance": 0.80, "range": 99, "anim_name": "ranged_bow_draw_up", "aoe_radius": 1, "aoe_friendly_fire": false}]

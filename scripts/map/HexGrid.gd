@@ -43,3 +43,49 @@ static func is_neighbour(from_q: int, from_r: int, to_q: int, to_r: int) -> bool
 		if v.x == to_q and v.y == to_r:
 			return true
 	return false
+
+## Retorna todos los hexes alcanzables desde 'origen' en 1..pasos pasos dentro de valid_hexes.
+## Incluye todos los hexes intermedios (el jugador puede detenerse en cualquiera).
+static func get_hexes_en_rango(origen: Vector2i, pasos: int, valid_hexes: Array[Vector2i]) -> Array[Vector2i]:
+	var visitados: Dictionary = {}
+	var frontera: Array[Vector2i] = [origen]
+	visitados[origen] = true
+	var resultado: Array[Vector2i] = []
+	for _i in range(pasos):
+		var siguiente: Array[Vector2i] = []
+		for hex in frontera:
+			for vecino in get_neighbours(hex.x, hex.y):
+				if visitados.has(vecino):
+					continue
+				if vecino in valid_hexes:
+					visitados[vecino] = true
+					siguiente.append(vecino)
+					resultado.append(vecino)
+		frontera = siguiente
+	return resultado
+
+## Camino más corto desde origen hasta destino usando BFS dentro de valid_hexes.
+## Devuelve array de hexes desde el primer paso hasta el destino (sin incluir origen).
+## Devuelve [] si no hay camino o si origen == destino.
+static func encontrar_camino(origen: Vector2i, destino: Vector2i, valid_hexes: Array[Vector2i]) -> Array[Vector2i]:
+	if origen == destino:
+		return []
+	var padres: Dictionary = {}
+	var cola: Array[Vector2i] = [origen]
+	padres[origen] = origen
+	while not cola.is_empty():
+		var actual: Vector2i = cola.pop_front()
+		if actual == destino:
+			var camino: Array[Vector2i] = []
+			var cursor: Vector2i = destino
+			while cursor != origen:
+				camino.push_front(cursor)
+				cursor = padres[cursor]
+			return camino
+		for vecino in get_neighbours(actual.x, actual.y):
+			if padres.has(vecino):
+				continue
+			if vecino in valid_hexes:
+				padres[vecino] = actual
+				cola.append(vecino)
+	return []

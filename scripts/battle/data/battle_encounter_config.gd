@@ -13,7 +13,7 @@ const _UnitSpawn = preload("res://scripts/battle/data/unit_spawn.gd")
 # --- Tablero ---
 @export var width: int = 4
 @export var height: int = 4
-@export var tile_size: float = 2.0
+@export var tile_size: float = 4.0
 @export var seed_value: int = 12345
 
 # --- Floors ---

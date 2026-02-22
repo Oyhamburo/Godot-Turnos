@@ -1,0 +1,15 @@
+[gd_resource type="Resource" script_class="BattleConfig" load_steps=5 format=3]
+
+[ext_resource type="Script" uid="uid://ulf3u7hwma0p" path="res://scripts/battle/data/battle_config.gd" id="1_script"]
+[ext_resource type="Script" uid="uid://bhxucm3pvs5mc" path="res://scripts/battle/data/spawn_entry.gd" id="2_spawn_script"]
+[ext_resource type="Resource" path="res://data/battles/spawn_explore_player.tres" id="3_spawn_player"]
+[ext_resource type="Resource" path="res://data/battles/spawn_explore_skeleton.tres" id="4_spawn_skeleton"]
+
+[resource]
+resource_local_to_scene = true
+script = ExtResource("1_script")
+width = 6
+height = 6
+blocked_coords = Array[Vector2i]([Vector2i(2, 0), Vector2i(3, 5)])
+spawns = Array[ExtResource("2_spawn_script")]([ExtResource("3_spawn_player"), ExtResource("4_spawn_skeleton")])
+facing_mode = "look_at_nearest_opponent"

@@ -7,14 +7,23 @@ script = ExtResource("1_script")
 display_name = "Escudo"
 weapon_type = 8
 slot = 1
-scene_3d_path = "res://assets/KayKit_Adventurers_2.0_FREE/Assets/gltf/shield_round.gltf"
+visual_hand = 1
 hand_offset_pos = Vector3(0, 0, 0)
 hand_offset_rot = Vector3(0, 0, 0)
-bonus_physical_damage = 0
-bonus_magic_damage = 0
+scene_3d_path = "res://assets/KayKit_Adventurers_2.0_FREE/Assets/gltf/shield_round.gltf"
 bonus_armor = 6
 bonus_magic_resist = 3
-bonus_speed = 0
 bonus_evasion = 0.05
-bonus_crit_chance = 0.0
-abilities = [{"display_name": "Defender", "physical": 0, "magic": 0, "hit_chance": 1.0, "range": 0, "anim_name": "melee_punch", "effect": "block_next"}]
+buy_price = 50
+sell_price = 20
+abilities = Array[Dictionary]([{
+"anim_name": "melee_block",
+"block_offset_pos": Vector3(0.05, 0.19, 0.1),
+"block_offset_rot": Vector3(-1.1182, 0.1019, -0.0061),
+"display_name": "Defender",
+"effect": "block_next",
+"hit_chance": 1.0,
+"magic": 0,
+"physical": 0,
+"range": 0
+}])

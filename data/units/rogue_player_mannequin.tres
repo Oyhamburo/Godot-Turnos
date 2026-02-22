@@ -1,0 +1,15 @@
+[gd_resource type="Resource" script_class="UnitData" load_steps=2 format=3]
+
+[ext_resource type="Script" uid="uid://6qt31kc823g4" path="res://scripts/data/UnitData.gd" id="1_script"]
+
+[resource]
+script = ExtResource("1_script")
+display_name = "Guerrero"
+team = 0
+max_hp = 80
+speed = 8
+attack = 12
+armor = 3
+crit_chance = 0.08
+dodge_chance = 0.08
+color = Color(0.3, 0.5, 1.0, 1)

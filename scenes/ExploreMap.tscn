@@ -1,9 +1,10 @@
-[gd_scene load_steps=6 format=3 uid="uid://exploremap01"]
+[gd_scene load_steps=7 format=3 uid="uid://exploremap01"]
 
 [ext_resource type="Script" path="res://scripts/map/ExploreMap.gd" id="1_script"]
 [ext_resource type="PackedScene" uid="uid://defaultmap01" path="res://scenes/DefaultMap.tscn" id="2_defaultmap"]
 [ext_resource type="PackedScene" uid="uid://m821k4r5rrfn" path="res://scenes/units/ExplorePlayer.tscn" id="3_player"]
 [ext_resource type="Environment" uid="uid://exploremapenv01" path="res://scenes/explore_map_env.tres" id="4_env"]
+[ext_resource type="PackedScene" uid="uid://explore_camera_rig" path="res://scenes/explore/ExploreCameraRig.tscn" id="5_camera_rig"]
 
 [node name="ExploreMap" type="Node3D"]
 script = ExtResource("1_script")
@@ -28,6 +29,8 @@ light_indirect_energy = 0.2
 [node name="DefaultMap" parent="." instance=ExtResource("2_defaultmap")]
 
 [node name="ExplorePlayer" parent="." instance=ExtResource("3_player")]
+
+[node name="ExploreCameraRig" parent="." instance=ExtResource("5_camera_rig")]
 
 [node name="UI" type="CanvasLayer" parent="."]
 

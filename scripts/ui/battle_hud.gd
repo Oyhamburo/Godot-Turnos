@@ -15,6 +15,7 @@ signal unequip_weapon_requested(slot: int)
 signal back_from_equipo()
 signal return_to_main_menu()                 # emitida al pulsar "Menú Principal"
 signal qte_completed(success: bool)          # true = perfect combo, false = fallo
+signal def_qte_completed(success: bool)      # true = bloqueo exitoso, false = fallo
 
 const _TurnSlotScene = preload("res://scenes/ui/TurnSlot.tscn")
 
@@ -30,7 +31,10 @@ var end_turn_btn: Button
 var ap_label: Label
 var sp_label: Label
 
-var equipo_panel: InventoryPanel = null
+## Panel de equipamiento personal (reemplaza al InventoryPanel en combate).
+var equipo_panel: PersonalInventoryPanel = null
+## El InventoryPanel legacy sigue disponible para compatibilidad con el sistema de armas.
+var _legacy_inv_panel: InventoryPanel = null
 
 var attack_panel: PanelContainer
 var attack_btn_1: Button
@@ -40,10 +44,10 @@ var attack_btn_4: Button
 var attack_back_btn: Button
 
 var item_panel: PanelContainer
-var item_btn_1: Button
-var item_btn_2: Button
-var item_btn_3: Button
 var item_back_btn: Button
+var _item_buttons: Array[Button] = []   # botones dinámicos de pociones
+var _item_vbox: VBoxContainer = null    # referencia al VBox del item_panel
+var _root_control: Control = null       # referencia al control raíz para show_feedback
 
 # ── Panel de resultado (victoria/derrota) ──
 var _result_root: Control = null      # Control raíz semitransparente de fondo
@@ -66,6 +70,17 @@ var _qte_active: bool = false
 var _qte_timer: float = 0.0
 var _qte_timeout: float = 1.0  # segundos por tecla
 
+# ── QTE Defensivo (Escudo) ──
+var _def_qte_panel: PanelContainer = null
+var _def_qte_key_box: PanelContainer = null
+var _def_qte_key_label: Label = null
+var _def_qte_timer_bar: ProgressBar = null
+var _def_qte_feedback_label: Label = null
+var _def_qte_prompt_label: Label = null
+var _def_qte_active: bool = false
+var _def_qte_timer: float = 0.0
+var _def_qte_timeout: float = 0.8  # ventana breve para bloquear
+
 
 func _ready() -> void:
 	layer = 10
@@ -85,10 +100,7 @@ func _ready() -> void:
 	attack_btn_4.pressed.connect(func() -> void: _on_attack(3))
 	attack_back_btn.pressed.connect(_on_attack_back)
 
-	# Conectar botones de items
-	item_btn_1.pressed.connect(func() -> void: _on_item(0))
-	item_btn_2.pressed.connect(func() -> void: _on_item(1))
-	item_btn_3.pressed.connect(func() -> void: _on_item(2))
+	# Conectar botón volver de items (los botones de pociones se conectan dinámicamente)
 	item_back_btn.pressed.connect(_on_item_back)
 
 	# Todo oculto al inicio
@@ -106,6 +118,7 @@ func _build_ui() -> void:
 	root.set_anchors_preset(Control.PRESET_FULL_RECT)
 	root.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(root)
+	_root_control = root
 
 	# ── Timeline (arriba-izquierda) ──
 	var timeline_panel := PanelContainer.new()
@@ -197,19 +210,13 @@ func _build_ui() -> void:
 	attack_vbox.add_child(attack_btn_4)
 	attack_vbox.add_child(attack_back_btn)
 
-	# ── Item Panel (derecha-centro) ──
-	item_panel = _make_menu_panel(root, "ItemPanel", Vector2(234, 220))
-	var item_vbox := VBoxContainer.new()
-	item_vbox.add_theme_constant_override("separation", 6)
-	item_panel.add_child(item_vbox)
-	item_btn_1 = _make_button("Pocion HP")
-	item_btn_2 = _make_button("Pocion Mana")
-	item_btn_3 = _make_button("Antidoto")
+	# ── Item Panel (derecha-centro) — contenido dinámico, se llena con setup_item_menu() ──
+	item_panel = _make_menu_panel(root, "ItemPanel", Vector2(250, 260))
+	_item_vbox = VBoxContainer.new()
+	_item_vbox.add_theme_constant_override("separation", 6)
+	item_panel.add_child(_item_vbox)
 	item_back_btn = _make_button("↩ Volver")
-	item_vbox.add_child(item_btn_1)
-	item_vbox.add_child(item_btn_2)
-	item_vbox.add_child(item_btn_3)
-	item_vbox.add_child(item_back_btn)
+	_item_vbox.add_child(item_back_btn)
 
 	# ── Label de selección de objetivo (arriba-centro, oculto por defecto) ──
 	_target_prompt_label = Label.new()
@@ -231,6 +238,9 @@ func _build_ui() -> void:
 
 	# ── QTE Panel (centro de la pantalla, oculto por defecto) ──
 	_build_qte_panel(root)
+
+	# ── QTE Defensivo (escudo, oculto por defecto) ──
+	_build_def_qte_panel(root)
 
 
 func _make_menu_panel(parent: Control, panel_name: String, size: Vector2) -> PanelContainer:
@@ -403,6 +413,98 @@ func _make_qte_box_style(bg_color: Color, border_color: Color) -> StyleBoxFlat:
 	return style
 
 
+# ── DEF QTE BUILD ─────────────────────────────────────────
+
+func _build_def_qte_panel(root: Control) -> void:
+	_def_qte_panel = PanelContainer.new()
+	_def_qte_panel.name = "DefQTEPanel"
+	_def_qte_panel.set_anchors_preset(Control.PRESET_CENTER)
+	_def_qte_panel.anchor_left = 0.5
+	_def_qte_panel.anchor_top = 0.5
+	_def_qte_panel.anchor_right = 0.5
+	_def_qte_panel.anchor_bottom = 0.5
+	_def_qte_panel.offset_left = -120
+	_def_qte_panel.offset_top = 40
+	_def_qte_panel.offset_right = 120
+	_def_qte_panel.offset_bottom = 190
+	_def_qte_panel.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	_def_qte_panel.grow_vertical = Control.GROW_DIRECTION_BOTH
+	# Panel azulado para defensa (diferente al púrpura ofensivo)
+	_def_qte_panel.add_theme_stylebox_override("panel",
+		_make_panel_style(Color(0.05, 0.08, 0.15, 0.92), 12))
+	_def_qte_panel.visible = false
+	_def_qte_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	root.add_child(_def_qte_panel)
+
+	var vbox := VBoxContainer.new()
+	vbox.add_theme_constant_override("separation", 8)
+	vbox.alignment = BoxContainer.ALIGNMENT_CENTER
+	_def_qte_panel.add_child(vbox)
+
+	# Prompt: "¡Bloquea!"
+	_def_qte_prompt_label = Label.new()
+	_def_qte_prompt_label.text = "¡Bloquea!"
+	_def_qte_prompt_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_def_qte_prompt_label.add_theme_font_size_override("font_size", 18)
+	_def_qte_prompt_label.add_theme_color_override("font_color", Color(0.4, 0.75, 1.0))
+	_def_qte_prompt_label.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.9))
+	_def_qte_prompt_label.add_theme_constant_override("outline_size", 3)
+	vbox.add_child(_def_qte_prompt_label)
+
+	# Caja grande con tecla "Q"
+	var key_hbox := HBoxContainer.new()
+	key_hbox.alignment = BoxContainer.ALIGNMENT_CENTER
+	vbox.add_child(key_hbox)
+
+	_def_qte_key_box = PanelContainer.new()
+	_def_qte_key_box.custom_minimum_size = Vector2(90, 64)
+	_def_qte_key_box.add_theme_stylebox_override("panel",
+		_make_qte_box_style(Color(0.1, 0.15, 0.3), Color(0.3, 0.6, 1.0)))
+	key_hbox.add_child(_def_qte_key_box)
+
+	_def_qte_key_label = Label.new()
+	_def_qte_key_label.text = "Q"
+	_def_qte_key_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_def_qte_key_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	_def_qte_key_label.add_theme_font_size_override("font_size", 32)
+	_def_qte_key_label.add_theme_color_override("font_color", Color(0.5, 0.8, 1.0))
+	_def_qte_key_label.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.9))
+	_def_qte_key_label.add_theme_constant_override("outline_size", 3)
+	_def_qte_key_box.add_child(_def_qte_key_label)
+
+	# Barra de timer (azul)
+	_def_qte_timer_bar = ProgressBar.new()
+	_def_qte_timer_bar.custom_minimum_size = Vector2(0, 10)
+	_def_qte_timer_bar.max_value = 1.0
+	_def_qte_timer_bar.value = 1.0
+	_def_qte_timer_bar.show_percentage = false
+	var bar_bg := StyleBoxFlat.new()
+	bar_bg.bg_color = Color(0.1, 0.1, 0.2)
+	bar_bg.corner_radius_top_left = 4
+	bar_bg.corner_radius_top_right = 4
+	bar_bg.corner_radius_bottom_left = 4
+	bar_bg.corner_radius_bottom_right = 4
+	_def_qte_timer_bar.add_theme_stylebox_override("background", bar_bg)
+	var bar_fill := StyleBoxFlat.new()
+	bar_fill.bg_color = Color(0.3, 0.65, 1.0)  # Azul para defensa
+	bar_fill.corner_radius_top_left = 4
+	bar_fill.corner_radius_top_right = 4
+	bar_fill.corner_radius_bottom_left = 4
+	bar_fill.corner_radius_bottom_right = 4
+	_def_qte_timer_bar.add_theme_stylebox_override("fill", bar_fill)
+	vbox.add_child(_def_qte_timer_bar)
+
+	# Label de feedback
+	_def_qte_feedback_label = Label.new()
+	_def_qte_feedback_label.text = ""
+	_def_qte_feedback_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_def_qte_feedback_label.add_theme_font_size_override("font_size", 16)
+	_def_qte_feedback_label.add_theme_color_override("font_color", Color.WHITE)
+	_def_qte_feedback_label.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.9))
+	_def_qte_feedback_label.add_theme_constant_override("outline_size", 3)
+	vbox.add_child(_def_qte_feedback_label)
+
+
 # ── QTE PUBLIC API ─────────────────────────────────────────
 
 ## Baraja el orden de las teclas QTE al azar para cada ataque.
@@ -528,6 +630,76 @@ func _qte_finish(success: bool) -> void:
 	qte_completed.emit(success)
 
 
+# ── DEFENSIVE QTE PUBLIC API ──────────────────────────────
+
+## Muestra el panel de QTE defensivo (escudo) e inicia el timer.
+func show_def_qte() -> void:
+	_def_qte_active = true
+	_def_qte_timer = _def_qte_timeout
+	_def_qte_feedback_label.text = ""
+	_def_qte_prompt_label.text = "¡Bloquea!"
+	_def_qte_timer_bar.value = 1.0
+	# Reset visual de la caja Q
+	_def_qte_key_box.add_theme_stylebox_override("panel",
+		_make_qte_box_style(Color(0.1, 0.15, 0.3), Color(0.3, 0.6, 1.0)))
+	_def_qte_key_label.add_theme_color_override("font_color", Color(0.5, 0.8, 1.0))
+	_def_qte_panel.visible = true
+	print("[BattleHUD] QTE Defensivo iniciado: pulsa Q para bloquear")
+
+
+## Oculta el panel de QTE defensivo.
+func hide_def_qte() -> void:
+	_def_qte_active = false
+	_def_qte_panel.visible = false
+
+
+## Actualiza el timer del QTE defensivo. Llamado desde battle_flow._process().
+func def_qte_process(delta: float) -> void:
+	if not _def_qte_active:
+		return
+	_def_qte_timer -= delta
+	_def_qte_timer_bar.value = clampf(_def_qte_timer / _def_qte_timeout, 0.0, 1.0)
+	if _def_qte_timer <= 0.0:
+		# Timeout: fallo automático
+		_def_qte_finish(false)
+
+
+## Procesa input del QTE defensivo (tecla Q). Llamado desde battle_flow._input().
+func def_qte_handle_input(event: InputEvent) -> void:
+	if not _def_qte_active:
+		return
+	if not (event is InputEventKey and event.pressed and not event.echo):
+		return
+
+	var key: Key = event.keycode
+	if key == KEY_Q:
+		# Tecla correcta: bloqueo exitoso
+		_def_qte_key_box.add_theme_stylebox_override("panel",
+			_make_qte_box_style(Color(0.1, 0.3, 0.4), Color(0.2, 0.8, 1.0)))
+		_def_qte_key_label.add_theme_color_override("font_color", Color(0.3, 0.9, 1.0))
+		_def_qte_finish(true)
+	else:
+		# Tecla incorrecta: fallo
+		_def_qte_key_box.add_theme_stylebox_override("panel",
+			_make_qte_box_style(Color(0.4, 0.1, 0.1), Color(0.9, 0.2, 0.2)))
+		_def_qte_key_label.add_theme_color_override("font_color", Color(1.0, 0.3, 0.3))
+		_def_qte_finish(false)
+
+
+func _def_qte_finish(success: bool) -> void:
+	_def_qte_active = false
+	if success:
+		_def_qte_feedback_label.text = "¡Bloqueado!"
+		_def_qte_feedback_label.add_theme_color_override("font_color", Color(0.3, 0.85, 1.0))
+	else:
+		_def_qte_feedback_label.text = "¡Fallaste!"
+		_def_qte_feedback_label.add_theme_color_override("font_color", Color(1.0, 0.35, 0.35))
+	print("[BattleHUD] QTE Defensivo finalizado: %s" % ("BLOQUEADO" if success else "FALLO"))
+	# Breve delay para ver el feedback
+	await get_tree().create_timer(0.4).timeout
+	def_qte_completed.emit(success)
+
+
 # ── PUBLIC API ─────────────────────────────────────────────
 
 ## Construye/actualiza la timeline con el orden de turnos.
@@ -609,28 +781,121 @@ func show_attack_menu(unit: Unit, melee_available: bool = false) -> void:
 func show_item_menu() -> void:
 	hide_all_menus()
 	item_panel.visible = true
-	item_btn_1.grab_focus()
-	print("[BattleHUD] Mostrando menú de ítems")
+	if _item_buttons.size() > 0:
+		_item_buttons[0].grab_focus()
+	else:
+		item_back_btn.grab_focus()
+	print("[BattleHUD] Mostrando menú de ítems (%d disponibles)" % _item_buttons.size())
+
+
+## Rellena el panel de ítems con los consumibles actuales del inventario.
+## Llamar antes de show_item_menu() cada vez que se abre el panel.
+func setup_item_menu(items: Array[ItemData]) -> void:
+	# Limpiar botones dinámicos anteriores
+	for btn in _item_buttons:
+		btn.queue_free()
+	_item_buttons.clear()
+
+	if items.is_empty():
+		var lbl := Label.new()
+		lbl.text = "Sin ítems disponibles"
+		lbl.add_theme_font_size_override("font_size", 14)
+		lbl.add_theme_color_override("font_color", Color(0.7, 0.7, 0.7))
+		lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		_item_vbox.add_child(lbl)
+		_item_vbox.move_child(lbl, 0)
+		_item_buttons  # vacío, no hay botones de pociones
+		return
+
+	for i in items.size():
+		var item: ItemData = items[i]
+		var emoji: String = _emoji_for_item(item)
+		var btn := _make_button("%s %s" % [emoji, item.display_name])
+		var idx := i  # captura local para el closure
+		btn.pressed.connect(func() -> void: _on_item(idx))
+		_item_buttons.append(btn)
+		_item_vbox.add_child(btn)
+		_item_vbox.move_child(btn, i)  # antes del botón ↩ Volver
+
+
+## Devuelve el emoji correspondiente al tipo de ítem.
+func _emoji_for_item(item: ItemData) -> String:
+	match item.item_type:
+		ItemData.ItemType.HEAL_HP:   return "🧪"
+		ItemData.ItemType.HEAL_MANA: return "💧"
+		ItemData.ItemType.ANTIDOTE:  return "🌿"
+		_:                           return "⭐"
+
+
+## Muestra un mensaje flotante temporal que desaparece con fade-out.
+func show_feedback(msg: String) -> void:
+	if not _root_control:
+		return
+	var lbl := Label.new()
+	lbl.text = msg
+	lbl.set_anchors_preset(Control.PRESET_CENTER)
+	lbl.offset_top = -60
+	lbl.offset_bottom = -20
+	lbl.offset_left = -200
+	lbl.offset_right = 200
+	lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	lbl.add_theme_font_size_override("font_size", 24)
+	lbl.add_theme_color_override("font_color", Color(1.0, 0.92, 0.3))
+	lbl.add_theme_color_override("font_outline_color", Color(0.0, 0.0, 0.0, 0.9))
+	lbl.add_theme_constant_override("outline_size", 5)
+	_root_control.add_child(lbl)
+	var tw := lbl.create_tween()
+	tw.tween_interval(0.6)
+	tw.tween_property(lbl, "modulate:a", 0.0, 0.9)
+	tw.tween_callback(lbl.queue_free)
 
 
 func show_equipo_panel(unit: Unit) -> void:
 	hide_all_menus()
+
+	# ── PersonalInventoryPanel (nuevo sistema RPG) ──
 	if not equipo_panel:
-		equipo_panel = InventoryPanel.new()
-		equipo_panel.set_anchors_preset(Control.PRESET_CENTER_RIGHT)
-		equipo_panel.anchor_left = 1.0
-		equipo_panel.anchor_top = 0.5
-		equipo_panel.anchor_right = 1.0
+		equipo_panel = PersonalInventoryPanel.new()
+		# Centrar en pantalla
+		equipo_panel.anchor_left   = 0.5
+		equipo_panel.anchor_top    = 0.5
+		equipo_panel.anchor_right  = 0.5
 		equipo_panel.anchor_bottom = 0.5
-		equipo_panel.offset_left = -256
-		equipo_panel.offset_right = -16
-		equipo_panel.grow_horizontal = Control.GROW_DIRECTION_BEGIN
-		equipo_panel.grow_vertical = Control.GROW_DIRECTION_BOTH
-		equipo_panel.weapon_equip_requested.connect(func(w: WeaponData, s: int) -> void: equip_weapon_requested.emit(w, s))
-		equipo_panel.weapon_unequip_requested.connect(func(s: int) -> void: unequip_weapon_requested.emit(s))
+		equipo_panel.grow_horizontal = Control.GROW_DIRECTION_BOTH
+		equipo_panel.grow_vertical   = Control.GROW_DIRECTION_BOTH
+		var pw: float = PersonalInventoryPanel.PANEL_SIZE.x
+		var ph: float = PersonalInventoryPanel.PANEL_SIZE.y
+		equipo_panel.offset_left   = -pw * 0.5
+		equipo_panel.offset_right  =  pw * 0.5
+		equipo_panel.offset_top    = -ph * 0.5
+		equipo_panel.offset_bottom =  ph * 0.5
 		equipo_panel.panel_closed.connect(func() -> void: back_from_equipo.emit())
-		get_child(0).add_child(equipo_panel)  # añadir al Root Control
-	equipo_panel.setup(unit)
+		get_child(0).add_child(equipo_panel)
+
+		# Crear inventario del unit si no tiene uno
+		var inv: Inventory = unit.inventory if unit.get("inventory") != null else Inventory.new()
+		equipo_panel.setup(inv)
+
+	# ── InventoryPanel legacy: sigue manejando armas de batalla ──
+	if not _legacy_inv_panel:
+		_legacy_inv_panel = InventoryPanel.new()
+		_legacy_inv_panel.set_anchors_preset(Control.PRESET_CENTER_RIGHT)
+		_legacy_inv_panel.anchor_left   = 1.0
+		_legacy_inv_panel.anchor_top    = 0.5
+		_legacy_inv_panel.anchor_right  = 1.0
+		_legacy_inv_panel.anchor_bottom = 0.5
+		_legacy_inv_panel.offset_left   = -256
+		_legacy_inv_panel.offset_right  = -16
+		_legacy_inv_panel.grow_horizontal = Control.GROW_DIRECTION_BEGIN
+		_legacy_inv_panel.grow_vertical   = Control.GROW_DIRECTION_BOTH
+		_legacy_inv_panel.weapon_equip_requested.connect(func(w: WeaponData, s: int) -> void: equip_weapon_requested.emit(w, s))
+		_legacy_inv_panel.weapon_unequip_requested.connect(func(s: int) -> void: unequip_weapon_requested.emit(s))
+		_legacy_inv_panel.panel_closed.connect(func() -> void: back_from_equipo.emit())
+		get_child(0).add_child(_legacy_inv_panel)
+
+	_legacy_inv_panel.setup(unit)
+	_legacy_inv_panel.visible = true
+
 	equipo_panel.visible = true
 	print("[BattleHUD] Mostrando panel de equipo para %s" % unit.display_name)
 
@@ -657,11 +922,16 @@ func hide_all_menus() -> void:
 	item_panel.visible = false
 	if equipo_panel:
 		equipo_panel.visible = false
+	if _legacy_inv_panel:
+		_legacy_inv_panel.visible = false
 	if _target_prompt_label:
 		_target_prompt_label.visible = false
 	if _qte_panel:
 		_qte_active = false
 		_qte_panel.visible = false
+	if _def_qte_panel:
+		_def_qte_active = false
+		_def_qte_panel.visible = false
 
 
 func hide_hud() -> void:
@@ -695,7 +965,7 @@ func set_move_enabled(enabled: bool) -> void:
 
 ## Muestra el cartel de resultado final (victoria o derrota).
 ## units: Array de Unit (todas las unidades de la batalla, vivas y muertas).
-func show_result_screen(won: bool, units: Array) -> void:
+func show_result_screen(won: bool, units: Array, oro_ganado: int = 0) -> void:
 	hide_all_menus()
 	turn_label.text = ""
 
@@ -759,6 +1029,17 @@ func show_result_screen(won: bool, units: Array) -> void:
 	subtitle.add_theme_color_override("font_color", Color(0.85, 0.85, 0.85))
 	main_vbox.add_child(subtitle)
 
+	# ── Recompensa de oro (solo victoria) ──
+	if won and oro_ganado > 0:
+		var gold_label := Label.new()
+		gold_label.text = "Oro ganado: +%d" % oro_ganado
+		gold_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		gold_label.add_theme_font_size_override("font_size", 20)
+		gold_label.add_theme_color_override("font_color", Color(1.0, 0.85, 0.2))
+		gold_label.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.9))
+		gold_label.add_theme_constant_override("outline_size", 4)
+		main_vbox.add_child(gold_label)
+
 	main_vbox.add_child(HSeparator.new())
 
 	# ── Botones de acción ──
@@ -771,7 +1052,9 @@ func show_result_screen(won: bool, units: Array) -> void:
 	detail_btn.custom_minimum_size = Vector2(160, 0)
 	btn_hbox.add_child(detail_btn)
 
-	var menu_btn := _make_button("🏠 Menú Principal")
+	var gm: Node = Engine.get_main_loop().root.get_node_or_null("GameManager")
+	var tiene_retorno: bool = gm != null and not gm.return_scene_after_battle.is_empty()
+	var menu_btn := _make_button("Continuar" if tiene_retorno else "Menu Principal")
 	menu_btn.custom_minimum_size = Vector2(160, 0)
 	btn_hbox.add_child(menu_btn)
 

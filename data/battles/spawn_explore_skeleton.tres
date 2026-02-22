@@ -1,0 +1,12 @@
+[gd_resource type="Resource" script_class="SpawnEntry" load_steps=4 format=3]
+
+[ext_resource type="Script" uid="uid://bhxucm3pvs5mc" path="res://scripts/battle/data/spawn_entry.gd" id="1_script"]
+[ext_resource type="PackedScene" uid="uid://b1h4syywnk48u" path="res://scenes/units/EnemySkeletonWarrior.tscn" id="2_scene"]
+[ext_resource type="Resource" path="res://data/units/enemy_skeleton_warrior.tres" id="3_data"]
+
+[resource]
+script = ExtResource("1_script")
+unit_scene = ExtResource("2_scene")
+unit_data = ExtResource("3_data")
+spawn_coords = Vector2i(4, 3)
+team = "enemy"

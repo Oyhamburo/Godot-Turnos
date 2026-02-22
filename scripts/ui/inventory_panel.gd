@@ -156,7 +156,7 @@ func _refresh() -> void:
 				equip_btn.pressed.connect(func() -> void: weapon_equip_requested.emit(w, 0))
 				row.add_child(equip_btn)
 			else:
-				# Arma 1H: botones "→R" y "→L"
+				# Arma 1H: un botón según el slot definido en el .tres
 				var row := HBoxContainer.new()
 				row.add_theme_constant_override("separation", 4)
 				weapons_vbox.add_child(row)
@@ -166,12 +166,18 @@ func _refresh() -> void:
 				lbl.add_theme_font_size_override("font_size", 11)
 				lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 				row.add_child(lbl)
-				var btn_r := _make_small_button("→R")
-				btn_r.pressed.connect(func() -> void: weapon_equip_requested.emit(w, 0))
-				row.add_child(btn_r)
-				var btn_l := _make_small_button("→L")
-				btn_l.pressed.connect(func() -> void: weapon_equip_requested.emit(w, 1))
-				row.add_child(btn_l)
+				if w.slot == WeaponData.SlotMode.LEFT_HAND:
+					# Escudo / offhand → solo mano izquierda
+					var btn_l := _make_small_button("Equipar")
+					# Deshabilitar si hay arma 2H equipada (bloquea mano izquierda)
+					btn_l.disabled = (eq_r != null and eq_r == eq_l)
+					btn_l.pressed.connect(func() -> void: weapon_equip_requested.emit(w, 1))
+					row.add_child(btn_l)
+				else:
+					# RIGHT_HAND → solo mano derecha (espada, daga, etc.)
+					var btn_r := _make_small_button("Equipar")
+					btn_r.pressed.connect(func() -> void: weapon_equip_requested.emit(w, 0))
+					row.add_child(btn_r)
 
 	# ── Ajustar tamaño mínimo según contenido ──
 	var row_count: int = maxi(1, available.size()) + 6

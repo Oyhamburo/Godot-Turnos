@@ -16,6 +16,7 @@ class_name FloatingHUD
 @onready var ghost_fill: ColorRect = $SubViewport/Border/VBox/BarContainer/GhostFill
 @onready var hp_fill: ColorRect = $SubViewport/Border/VBox/BarContainer/HPFill
 @onready var hp_text: Label = $SubViewport/Border/VBox/BarContainer/HPText
+@onready var status_hbox: HBoxContainer = $SubViewport/Border/VBox/StatusIcons
 
 var _stats: UnitStats
 var _current_hp: int = 0
@@ -25,6 +26,9 @@ var _border_style: StyleBoxFlat
 var _hp_tween: Tween
 var _ghost_tween: Tween
 var _shake_tween: Tween
+
+## Labels de emojis de efectos de estado activos. Clave: StatusEffect.Tipo → Label
+var _status_labels: Dictionary = {}
 
 # Dimensiones internas de la barra (viewport 200px - 2px borde cada lado)
 const BAR_WIDTH: float = 196.0
@@ -191,3 +195,41 @@ func _start_render_during_tweens() -> void:
 		func(): viewport.render_target_update_mode = SubViewport.UPDATE_ONCE,
 		CONNECT_ONE_SHOT
 	)
+
+
+# ── STATUS EFFECTS: íconos emoji debajo de la barra de HP ──
+
+## Conecta el StatusEffectManager para mostrar/ocultar emojis de estado.
+## Llamar desde Unit._ready() después de add_floating_hud().
+func conectar_efectos(manager: StatusEffectManager) -> void:
+	if not manager:
+		return
+	manager.efecto_aplicado.connect(_on_efecto_aplicado)
+	manager.efecto_removido.connect(_on_efecto_removido)
+
+
+func _on_efecto_aplicado(efecto: StatusEffect) -> void:
+	if not status_hbox:
+		return
+	# Si ya existe un label para este tipo, no duplicar
+	if _status_labels.has(efecto.tipo):
+		_request_render()
+		return
+	var lbl := Label.new()
+	lbl.text = efecto.obtener_emoji()
+	lbl.add_theme_font_size_override("font_size", 11)
+	lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	status_hbox.add_child(lbl)
+	_status_labels[efecto.tipo] = lbl
+	_request_render()
+
+
+func _on_efecto_removido(efecto: StatusEffect) -> void:
+	if not status_hbox:
+		return
+	if _status_labels.has(efecto.tipo):
+		var lbl: Label = _status_labels[efecto.tipo]
+		if is_instance_valid(lbl):
+			lbl.queue_free()
+		_status_labels.erase(efecto.tipo)
+		_request_render()

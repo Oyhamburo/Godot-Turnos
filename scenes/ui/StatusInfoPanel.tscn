@@ -1,0 +1,51 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/ui/StatusInfoPanel.gd" id="1_script"]
+
+[node name="StatusInfoPanel" type="Control"]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+script = ExtResource("1_script")
+
+[node name="Dim" type="ColorRect" parent="."]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+color = Color(0, 0, 0, 0.55)
+
+[node name="Center" type="CenterContainer" parent="."]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+
+[node name="Panel" type="PanelContainer" parent="Center"]
+custom_minimum_size = Vector2(780, 0)
+
+[node name="Margin" type="MarginContainer" parent="Center/Panel"]
+theme_override_constants/margin_left = 26
+theme_override_constants/margin_top = 24
+theme_override_constants/margin_right = 26
+theme_override_constants/margin_bottom = 24
+
+[node name="VBox" type="VBoxContainer" parent="Center/Panel/Margin"]
+add_theme_constant_override("separation", 18)
+size_flags_horizontal = 3
+
+[node name="Title" type="Label" parent="Center/Panel/Margin/VBox"]
+text = "Efectos de Estado"
+horizontal_alignment = 1
+
+[node name="Scroll" type="ScrollContainer" parent="Center/Panel/Margin/VBox"]
+custom_minimum_size = Vector2(0, 500)
+size_flags_vertical = 3
+
+[node name="EffectsContainer" type="VBoxContainer" parent="Center/Panel/Margin/VBox/Scroll"]
+unique_name_in_owner = true
+size_flags_horizontal = 3
+add_theme_constant_override("separation", 4)
+
+[node name="BackButton" type="Button" parent="Center/Panel/Margin/VBox"]
+unique_name_in_owner = true
+text = "Volver"
+size_flags_horizontal = 3

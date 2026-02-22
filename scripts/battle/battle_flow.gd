@@ -19,6 +19,7 @@ enum State {
 	CHOOSING_EQUIPO,
 	CHOOSING_MOVE,
 	QTE,
+	DEFENSIVE_QTE,
 	ENEMY_TURN,
 	ANIMATING,
 	BATTLE_END
@@ -53,6 +54,12 @@ var _qte_target: Unit = null             # target del ataque (single target)
 var _qte_center_coord: Vector2i = Vector2i.ZERO  # centro AoE
 var _qte_is_aoe: bool = false            # true si es ataque AoE
 var _qte_ability_index: int = 0
+
+# QTE Defensivo (escudo) — corre en paralelo con attack_target()
+var _def_qte_target: Unit = null
+var _def_qte_attacker: Unit = null
+var _def_qte_ability_index: int = 0
+var _def_qte_active: bool = false
 
 
 func _ready() -> void:
@@ -90,6 +97,9 @@ func _ready() -> void:
 func _process(delta: float) -> void:
 	if _state == State.QTE and hud:
 		hud.qte_process(delta)
+	# QTE defensivo corre en paralelo con ANIMATING (no tiene estado propio)
+	if _def_qte_active and hud:
+		hud.def_qte_process(delta)
 
 
 func _use_baked_layout() -> bool:
@@ -337,9 +347,40 @@ func _start_next_turn() -> void:
 
 
 func _start_player_turn() -> void:
-	_state = State.CHOOSING_ACTION
 	_current_unit._blocking = false  # La guardia baja al empezar tu propio turno
 	_current_unit.stats.reset_turn_actions()
+
+	# ── Tick efectos de estado al inicio del turno ──
+	if _current_unit.efectos_manager:
+		var dano_tick: int = _current_unit.efectos_manager.tick_inicio_turno()
+		if dano_tick > 0:
+			await get_tree().create_timer(0.6).timeout
+		if not _current_unit.alive:
+			_advance_turn()
+			return
+
+	# ── STUN: pierde el turno completo ──
+	if _current_unit.efectos_manager and _current_unit.efectos_manager.tiene_efecto(StatusEffect.Tipo.STUN):
+		_current_unit.show_floating_text("⚡ ¡Aturdido!", Color(1.0, 0.9, 0.2))
+		await get_tree().create_timer(0.8).timeout
+		_advance_turn()
+		return
+
+	# ── CONFUSION: turno aleatorio automático ──
+	if _current_unit.efectos_manager and _current_unit.efectos_manager.tiene_efecto(StatusEffect.Tipo.CONFUSION):
+		_current_unit.show_floating_text("🌀 ¡Confundido!", Color(0.8, 0.4, 1.0))
+		await get_tree().create_timer(0.5).timeout
+		await _ejecutar_turno_confuso(_current_unit)
+		_advance_turn()
+		return
+
+	# ── ENREDADO: no puede moverse (SP=0) pero puede atacar ──
+	if _current_unit.efectos_manager and _current_unit.efectos_manager.tiene_efecto(StatusEffect.Tipo.ENREDADO):
+		_current_unit.stats.current_sp = 0
+		_current_unit.stats.ap_sp_changed.emit(_current_unit.stats.current_ap, 0)
+		_current_unit.show_floating_text("🌿 ¡Enredado!", Color(0.3, 0.7, 0.3))
+
+	_state = State.CHOOSING_ACTION
 	print("[BattleFlow] Estado: CHOOSING_ACTION - mostrando menú de acciones (AP:%d SP:%d)" % [
 		_current_unit.stats.current_ap, _current_unit.stats.current_sp
 	])
@@ -357,14 +398,44 @@ func _start_enemy_turn() -> void:
 	_state = State.ENEMY_TURN
 	_current_unit._blocking = false  # La guardia baja al empezar el turno
 	_current_unit.stats.reset_turn_actions()  # Resetear AP/SP para que pueda atacar y moverse
+
+	if hud:
+		hud.hide_all_menus()
+
+	# ── Tick efectos de estado al inicio del turno ──
+	if _current_unit.efectos_manager:
+		var dano_tick: int = _current_unit.efectos_manager.tick_inicio_turno()
+		if dano_tick > 0:
+			await get_tree().create_timer(0.6).timeout
+		if not _current_unit.alive:
+			_advance_turn()
+			return
+
+	# ── STUN: pierde el turno completo ──
+	if _current_unit.efectos_manager and _current_unit.efectos_manager.tiene_efecto(StatusEffect.Tipo.STUN):
+		_current_unit.show_floating_text("⚡ ¡Aturdido!", Color(1.0, 0.9, 0.2))
+		await get_tree().create_timer(0.8).timeout
+		_advance_turn()
+		return
+
+	# ── CONFUSION: turno aleatorio automático ──
+	if _current_unit.efectos_manager and _current_unit.efectos_manager.tiene_efecto(StatusEffect.Tipo.CONFUSION):
+		_current_unit.show_floating_text("🌀 ¡Confundido!", Color(0.8, 0.4, 1.0))
+		await get_tree().create_timer(0.5).timeout
+		await _ejecutar_turno_confuso(_current_unit)
+		_advance_turn()
+		return
+
+	# ── ENREDADO: no puede moverse (SP=0) pero puede atacar ──
+	if _current_unit.efectos_manager and _current_unit.efectos_manager.tiene_efecto(StatusEffect.Tipo.ENREDADO):
+		_current_unit.stats.current_sp = 0
+		_current_unit.stats.ap_sp_changed.emit(_current_unit.stats.current_ap, 0)
+
 	print("[BattleFlow] Estado: ENEMY_TURN - %s actúa (AP:%d SP:%d)" % [
 		_current_unit.display_name,
 		_current_unit.stats.current_ap,
 		_current_unit.stats.current_sp
 	])
-
-	if hud:
-		hud.hide_all_menus()
 
 	# Cámara enfoca al enemigo
 	camera_rig.tween_to_focus(_current_unit.global_position + Vector3(0, 1, 0), 0.5)
@@ -450,15 +521,79 @@ func _start_enemy_turn() -> void:
 
 	_state = State.ANIMATING
 
-	# Cámara encuadra a ambos personajes durante el ataque
-	camera_rig.tween_to_combat_view(_current_unit.global_position, target.global_position)
+	# Cámara detrás del player (target) viendo al enemigo acercarse de frente — mirror lateral
+	camera_rig.tween_to_cinematic_combat_view(target.global_position, _current_unit.global_position, true)
+
+	# ── QTE Defensivo: si el target tiene escudo, lanzar QTE en paralelo con ataque ──
+	var has_shield: bool = _target_has_shield(target)
+	if has_shield:
+		_start_defensive_qte(target, _current_unit, ability_idx)
 
 	await _current_unit.attack_target(target, ability_idx)
+
+	# Si el QTE sigue activo (el jugador no presionó nada), forzar fin
+	if has_shield and hud and _def_qte_active:
+		_force_end_defensive_qte()
 
 	# Pequeña pausa después del ataque
 	await get_tree().create_timer(0.3).timeout
 
 	_advance_turn()
+
+
+# ── QTE DEFENSIVO (ESCUDO) ────────────────────────────────
+
+## Verifica si la unidad tiene un escudo equipado en la mano izquierda.
+func _target_has_shield(unit: Unit) -> bool:
+	return (unit._equipped_weapon_data_l != null
+		and unit._equipped_weapon_data_l.weapon_type == WeaponData.WeaponType.SHIELD)
+
+
+## Inicia el QTE defensivo en paralelo con la animación de ataque del enemigo.
+## No bloquea el flujo — corre simultáneamente con attack_target().
+func _start_defensive_qte(target: Unit, attacker: Unit, ability_idx: int) -> void:
+	_def_qte_target = target
+	_def_qte_attacker = attacker
+	_def_qte_ability_index = ability_idx
+	_def_qte_active = true
+
+	print("[BattleFlow] QTE Defensivo: %s tiene escudo, esperando input 'Q'" % target.display_name)
+
+	if hud:
+		if hud.def_qte_completed.is_connected(_on_defensive_qte_completed):
+			hud.def_qte_completed.disconnect(_on_defensive_qte_completed)
+		hud.def_qte_completed.connect(_on_defensive_qte_completed, CONNECT_ONE_SHOT)
+		hud.show_def_qte()
+
+
+## Callback cuando el QTE defensivo finaliza (éxito o fallo).
+## Corre mientras attack_target() sigue ejecutándose en paralelo.
+func _on_defensive_qte_completed(success: bool) -> void:
+	_def_qte_active = false
+
+	if success:
+		# Activar bloqueo ANTES de que _resolve_attack_damage se ejecute (al 55% de la anim)
+		_def_qte_target._blocking = true
+		print("[BattleFlow] QTE Defensivo ÉXITO — %s bloqueará el ataque" % _def_qte_target.display_name)
+	else:
+		# Asegurar que no bloquee
+		_def_qte_target._blocking = false
+		print("[BattleFlow] QTE Defensivo FALLO — daño normal")
+
+	# Ocultar panel después de un instante (el feedback ya se muestra en _def_qte_finish)
+	if hud:
+		await get_tree().create_timer(0.3).timeout
+		hud.hide_def_qte()
+
+
+## Fuerza el fin del QTE defensivo si attack_target() terminó antes de que el jugador reaccionara.
+func _force_end_defensive_qte() -> void:
+	_def_qte_active = false
+	if hud:
+		if hud.def_qte_completed.is_connected(_on_defensive_qte_completed):
+			hud.def_qte_completed.disconnect(_on_defensive_qte_completed)
+		hud.hide_def_qte()
+	print("[BattleFlow] QTE Defensivo forzado a finalizar (ataque ya terminó)")
 
 
 # ── HUD SIGNALS ────────────────────────────────────────────
@@ -506,6 +641,8 @@ func _on_hud_action_selected(action: String) -> void:
 			print("[BattleFlow] Estado: CHOOSING_ITEM - mostrando ítems")
 			camera_rig.tween_to_item_view(_current_unit.global_position)
 			if hud:
+				var inv_items: Array[ItemData] = _current_unit.inventory.items if _current_unit.inventory else []
+				hud.setup_item_menu(inv_items)
 				hud.show_item_menu()
 
 		"equipo":
@@ -547,13 +684,10 @@ func _on_hud_attack_selected(index: int) -> void:
 		_current_unit.stats.spend_ap(1)
 		_current_unit._blocking = true
 		print("[BattleFlow] %s se pone en posición defensiva (bloqueará el próximo golpe)" % _current_unit.display_name)
-		# Animación de "ponerse en guardia" (reutiliza melee_punch como placeholder)
-		var ap_node: AnimationPlayer = _current_unit._get_anim_ap()
-		if ap_node and ap_node.has_animation(ab.get("anim_name", "")):
-			ap_node.play(ab.get("anim_name", ""))
-			await ap_node.animation_finished
-		else:
-			await get_tree().create_timer(0.4).timeout
+		# Animación de bloqueo con tween del escudo (método unificado en Unit.gd)
+		var block_pos: Vector3 = ab.get("block_offset_pos", Vector3.ZERO)
+		var block_rot: Vector3 = ab.get("block_offset_rot", Vector3.ZERO)
+		await _current_unit.play_block_animation(ab.get("anim_name", ""), block_pos, block_rot)
 		await get_tree().create_timer(0.2).timeout
 		_check_turn_end_or_continue()
 		return
@@ -577,13 +711,96 @@ func _on_hud_attack_selected(index: int) -> void:
 func _on_hud_item_selected(index: int) -> void:
 	if _state != State.CHOOSING_ITEM:
 		return
+	var inv: Inventory = _current_unit.inventory
+	if not inv or index >= inv.items.size():
+		return
+	# Verificar SP disponible
+	if _current_unit.stats.current_sp <= 0:
+		print("[BattleFlow] Sin SP para usar ítem")
+		if hud: hud.show_feedback("Sin SP para usar ítems")
+		return
+	var item: ItemData = inv.items[index]
+	print("[BattleFlow] ► %s usa %s" % [_current_unit.display_name, item.display_name])
+	_usar_item(item, _current_unit)
+	inv.remove_item(item)
+	_current_unit.stats.spend_sp(1)
+	# Si quedan ítems, actualizar menú; si no, volver a acciones
+	if inv.items.is_empty():
+		_return_to_action_menu()
+	else:
+		if hud:
+			hud.setup_item_menu(inv.items)
+			hud.show_item_menu()
 
-	print("[BattleFlow] ► Item %d seleccionado (placeholder - no hace nada)" % index)
-	# Placeholder: los ítems no hacen nada por ahora, vuelve al menú de acciones
-	_state = State.CHOOSING_ACTION
-	camera_rig.tween_to_action_view(_current_unit.global_position)
-	if hud:
-		hud.show_action_menu()
+
+## Aplica el efecto del ítem consumible sobre la unidad.
+## Usa unit.curar_hp() para respetar el efecto ENFERMEDAD.
+func _usar_item(item: ItemData, unit: Unit) -> void:
+	match item.item_type:
+		ItemData.ItemType.HEAL_HP:
+			unit.curar_hp(item.effect_value)
+			if hud: hud.show_feedback("🧪 +%d HP" % item.effect_value)
+		ItemData.ItemType.HEAL_MANA:
+			unit.stats.restore_mana(item.effect_value)
+			if hud: hud.show_feedback("💧 +%d Maná" % item.effect_value)
+		ItemData.ItemType.ANTIDOTE:
+			unit.curar_hp(item.effect_value)
+			# El antídoto remueve VENENO si está activo
+			if unit.efectos_manager:
+				unit.efectos_manager.remover_efecto(StatusEffect.Tipo.VENENO)
+			if hud: hud.show_feedback("🌿 Antídoto: +%d HP" % item.effect_value)
+		ItemData.ItemType.CONSUMABLE:
+			unit.curar_hp(item.effect_value)
+			# Elixir Mayor: devuelve 1 SP
+			unit.stats.current_sp = mini(unit.stats.current_sp + 1, unit.stats.max_secondary_actions)
+			unit.stats.ap_sp_changed.emit(unit.stats.current_ap, unit.stats.current_sp)
+			if hud: hud.show_feedback("⭐ Elixir: +%d HP +1 SP" % item.effect_value)
+		ItemData.ItemType.STATUS_EFFECT:
+			# Poción de buff/debuff: aplica efecto de estado
+			if item.status_effect_tipo >= 0:
+				unit.aplicar_efecto_estado(
+					item.status_effect_tipo as StatusEffect.Tipo,
+					item.status_effect_duracion,
+					item.status_effect_potencia,
+					unit)
+			if hud: hud.show_feedback("✨ %s" % item.display_name)
+
+
+## Ejecuta un turno automático bajo confusión: elige target aleatorio de TODOS los
+## vivos (incluye aliados = friendly fire), ability aleatoria, ejecuta ataque automático.
+func _ejecutar_turno_confuso(unit: Unit) -> void:
+	# Recolectar TODOS los vivos (incluye aliados y enemigos — friendly fire)
+	var todos_vivos: Array[Unit] = []
+	for u in _turn_order:
+		if u is Unit and u.alive and u != unit:
+			todos_vivos.append(u)
+
+	if todos_vivos.is_empty():
+		return
+
+	# Elegir target aleatorio
+	var target: Unit = todos_vivos[randi() % todos_vivos.size()]
+
+	# Elegir ability aleatoria (excluyendo defensivas)
+	var all_abilities: Array[Dictionary] = Unit.get_all_abilities(unit)
+	var ability_count: int = maxi(1, all_abilities.size())
+	var valid_indices: Array[int] = []
+	for i in range(ability_count):
+		var ab: Dictionary = Unit.get_ability(unit, i)
+		if ab.get("effect", "") == "":
+			valid_indices.append(i)
+
+	var ability_idx: int = 0
+	if not valid_indices.is_empty():
+		ability_idx = valid_indices[randi() % valid_indices.size()]
+
+	print("[BattleFlow] 🌀 Turno confuso: %s ataca a %s con habilidad %d" % [
+		unit.display_name, target.display_name, ability_idx])
+
+	_state = State.ANIMATING
+	camera_rig.tween_to_cinematic_combat_view(unit.global_position, target.global_position)
+	await unit.attack_target(target, ability_idx)
+	await get_tree().create_timer(0.3).timeout
 
 
 func _on_hud_back_from_attack() -> void:
@@ -621,6 +838,14 @@ func _on_hud_equip_weapon(weapon: WeaponData, slot: int) -> void:
 			return
 		unit.stats.spend_sp(1)
 
+	# Si el slot activo y el contrario apuntan a la misma arma → venía de 2H.
+	# Limpiar el slot contrario en el Inventory antes de equipar la nueva arma.
+	var other_slot: int = 1 - slot
+	var current_weapon: WeaponData = unit.inventory.get_equipped_in_slot(slot)
+	var other_weapon: WeaponData   = unit.inventory.get_equipped_in_slot(other_slot)
+	if current_weapon != null and current_weapon == other_weapon:
+		unit.inventory.set_equipped_in_slot(other_slot, null)
+
 	# Actualizar inventario
 	unit.inventory.set_equipped_in_slot(slot, weapon)
 	# Arma 2H: marcar también el otro slot como ocupado
@@ -635,8 +860,8 @@ func _on_hud_equip_weapon(weapon: WeaponData, slot: int) -> void:
 	])
 
 	# Refrescar panel para reflejar el nuevo estado
-	if hud and hud.equipo_panel:
-		hud.equipo_panel.setup(unit)
+	if hud and hud.equipo_panel and unit.inventory:
+		hud.equipo_panel.setup(unit.inventory)
 
 	_return_to_action_menu()
 
@@ -812,7 +1037,7 @@ func _execute_attack_on_target(target: Unit) -> void:
 	_current_unit.stats.spend_ap(1)
 
 	# Cámara encuadra a ambos personajes durante el ataque
-	camera_rig.tween_to_combat_view(_current_unit.global_position, target.global_position)
+	camera_rig.tween_to_cinematic_combat_view(_current_unit.global_position, target.global_position)
 
 	# ── QTE para ataques del player ──
 	if _current_unit.team == Unit.Team.PLAYER:
@@ -882,7 +1107,7 @@ func _execute_aoe_attack_on_area(center_coord: Vector2i, ability_index: int) -> 
 	var center_world: Vector3 = center_tile.world_position if center_tile else Vector3.ZERO
 
 	# Cámara encuadra al atacante y al centro del AoE
-	camera_rig.tween_to_combat_view(_current_unit.global_position, center_world)
+	camera_rig.tween_to_cinematic_combat_view(_current_unit.global_position, center_world)
 
 	# ── QTE para ataques del player ──
 	if _current_unit.team == Unit.Team.PLAYER:
@@ -935,7 +1160,6 @@ func _start_qte(target: Unit, center_coord: Vector2i, ability_index: int, is_aoe
 	_current_unit.start_attack_slow_motion()
 
 	var ab: Dictionary = Unit.get_ability(_current_unit, ability_index)
-	var is_melee: bool = ab.get("range", 99) <= 1
 
 	_current_unit.set_animation_state(Unit.AnimState.NONE)
 	if target:
@@ -945,15 +1169,9 @@ func _start_qte(target: Unit, center_coord: Vector2i, ability_index: int, is_aoe
 		if ct:
 			_current_unit._face_target(ct.world_position)
 
-	# Para melee: approach al enemigo a velocidad normal antes del slow-mo
-	if is_melee and target:
-		var approach := _current_unit._approach_position(target)
-		var t_move := _current_unit.create_tween()
-		t_move.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
-		t_move.tween_property(_current_unit, "global_position", approach, 0.35)
-		await t_move.finished
+	# NO hacer approach aquí — attack_target() se encarga del approach+return con walk anim
 
-	# Iniciar animación de ataque en slow-mo
+	# Iniciar animación de ataque en slow-mo (preview visual durante QTE)
 	var ap: AnimationPlayer = _current_unit._get_anim_ap()
 	var anim_name: String = ab.get("anim_name", "attack")
 	if ap:
@@ -1125,11 +1343,15 @@ func _has_adjacent_enemy() -> bool:
 
 
 ## Busca el enemigo vivo más cercano dentro del rango dado (desde la perspectiva del player).
+## Ignora unidades con SIGILO activo (no targeteables single-target).
 func _find_target_in_range(attacker_coord: Vector2i, atk_range: int) -> Unit:
 	var best_target: Unit = null
 	var best_distance: int = 999
 	for u in _turn_order:
 		if u is Unit and u.alive and u.team == Unit.Team.ENEMY:
+			# SIGILO: no targeteable por ataques single-target
+			if u.efectos_manager and u.efectos_manager.tiene_efecto(StatusEffect.Tipo.SIGILO):
+				continue
 			var enemy_coord: Vector2i = board.get_coords_for_unit(u)
 			var dist: int = board.get_tile_distance(attacker_coord, enemy_coord)
 			if dist <= atk_range and dist < best_distance:
@@ -1233,11 +1455,15 @@ func _get_alive_opponents(unit: Unit) -> Array:
 
 
 ## Busca el jugador vivo más cercano dentro del rango dado (desde la perspectiva del enemigo).
+## Ignora unidades con SIGILO activo (no targeteables single-target).
 func _find_player_target_in_range(attacker_coord: Vector2i, atk_range: int) -> Unit:
 	var best_target: Unit = null
 	var best_distance: int = 999
 	for u in _turn_order:
 		if u is Unit and u.alive and u.team == Unit.Team.PLAYER:
+			# SIGILO: no targeteable por ataques single-target
+			if u.efectos_manager and u.efectos_manager.tiene_efecto(StatusEffect.Tipo.SIGILO):
+				continue
 			var player_coord: Vector2i = board.get_coords_for_unit(u)
 			var dist: int = board.get_tile_distance(attacker_coord, player_coord)
 			if dist <= atk_range and dist < best_distance:
@@ -1294,6 +1520,10 @@ func _check_battle_end() -> bool:
 		print("[BattleFlow] ══════════════════════════════")
 		print("[BattleFlow] BATALLA TERMINADA - DERROTA")
 		print("[BattleFlow] ══════════════════════════════")
+		# En modo rogue, terminar la run
+		var rm_defeat: Node = Engine.get_main_loop().root.get_node_or_null("RogueManager")
+		if rm_defeat and rm_defeat.get("run_activa") and rm_defeat.run_activa:
+			rm_defeat.terminar_run(false)
 		if hud:
 			hud.show_result_screen(false, _spawned_units)
 		return true
@@ -1303,17 +1533,53 @@ func _check_battle_end() -> bool:
 		print("[BattleFlow] ══════════════════════════════")
 		print("[BattleFlow] BATALLA TERMINADA - VICTORIA")
 		print("[BattleFlow] ══════════════════════════════")
+		var oro_ganado: int = _otorgar_recompensa()
 		if hud:
-			hud.show_result_screen(true, _spawned_units)
+			hud.show_result_screen(true, _spawned_units, oro_ganado)
 		return true
 
 	return false
 
 
-## Vuelve al menú principal al pulsar el botón correspondiente en la pantalla de resultado.
+## Calcula y otorga la recompensa de oro.
+## En modo rogue, usa RogueManager en vez de GameManager.
+func _otorgar_recompensa() -> int:
+	var enemigos_muertos: int = 0
+	var todos_players_vivos: bool = true
+	for u in _spawned_units:
+		if u is Unit and u.team == Unit.Team.ENEMY and not u.alive:
+			enemigos_muertos += 1
+		if u is Unit and u.team == Unit.Team.PLAYER and not u.alive:
+			todos_players_vivos = false
+
+	# Modo RogueLike: oro manejado por RogueManager
+	var rm: Node = Engine.get_main_loop().root.get_node_or_null("RogueManager")
+	if rm and rm.get("run_activa") and rm.run_activa:
+		return rm.calcular_oro_batalla(enemigos_muertos, todos_players_vivos)
+
+	# Modo normal: oro manejado por GameManager
+	var gm: Node = Engine.get_main_loop().root.get_node_or_null("GameManager")
+	if not gm or not gm.has_method("otorgar_recompensa_batalla"):
+		return 0
+	return gm.otorgar_recompensa_batalla(enemigos_muertos, todos_players_vivos)
+
+
+## Vuelve a la escena de origen (ExploreMap, ThirdPersonMap, RogueRun) o al menú principal.
 func _on_return_to_main_menu() -> void:
-	print("[BattleFlow] Volviendo al menú principal")
-	get_tree().change_scene_to_file("res://scenes/MainMenu.tscn")
+	# Guardar estado del jugador rogue antes de salir
+	var rm: Node = Engine.get_main_loop().root.get_node_or_null("RogueManager")
+	if rm and rm.get("run_activa") and rm.run_activa:
+		rm.guardar_estado_jugador_desde_unidades(_spawned_units)
+
+	var gm: Node = Engine.get_main_loop().root.get_node_or_null("GameManager")
+	var escena_retorno: String = ""
+	if gm:
+		escena_retorno = gm.return_scene_after_battle
+		gm.return_scene_after_battle = ""  # Limpiar para no reutilizar
+	if escena_retorno.is_empty():
+		escena_retorno = "res://scenes/MainMenu.tscn"
+	print("[BattleFlow] Volviendo a: %s" % escena_retorno)
+	get_tree().change_scene_to_file(escena_retorno)
 
 
 # ── LEGACY: tile selection (mantener para debug con T) ─────
@@ -1332,6 +1598,12 @@ func _input(event: InputEvent) -> void:
 	if _state == State.QTE:
 		if hud:
 			hud.qte_handle_input(event)
+		return
+
+	# ── QTE Defensivo (escudo): procesar input Q (corre en paralelo con ANIMATING) ──
+	if _def_qte_active:
+		if hud:
+			hud.def_qte_handle_input(event)
 		return
 
 	# ── CHOOSING_TARGET: hover, click en enemigo, cancelar ──
@@ -1441,7 +1713,7 @@ func _input(event: InputEvent) -> void:
 	if not event is InputEventMouseButton or not event.pressed or event.button_index != MOUSE_BUTTON_LEFT:
 		return
 	# Solo permitir selección de tiles en estados que no son de menú
-	if _state in [State.CHOOSING_ACTION, State.CHOOSING_ATTACK, State.CHOOSING_TARGET, State.CHOOSING_ITEM, State.CHOOSING_EQUIPO, State.QTE]:
+	if _state in [State.CHOOSING_ACTION, State.CHOOSING_ATTACK, State.CHOOSING_TARGET, State.CHOOSING_ITEM, State.CHOOSING_EQUIPO, State.QTE, State.DEFENSIVE_QTE]:
 		return
 
 	var camera: Camera3D = get_viewport().get_camera_3d()

@@ -13,6 +13,9 @@ const CONFIG_KEY := "config_path"
 var config_path: String = ""
 var _explicit_path_this_session: bool = false
 
+## Config inyectado directamente (modo RogueLike). Se consume al leerlo.
+var rogue_config: BattleConfig = null
+
 ## Establece la ruta del .tres a probar (BattleConfig o BattleEncounterConfig).
 func set_config_path(path: String) -> void:
 	config_path = path
@@ -42,6 +45,11 @@ func _load_path() -> void:
 ## Devuelve BattleConfig para usar en BattleFlow. Carga desde config_path.
 ## Si es BattleEncounterConfig, genera y convierte a BattleConfig.
 func get_battle_config() -> BattleConfig:
+	# Prioridad: config rogue inyectado directamente (sin archivo)
+	if rogue_config:
+		var cfg := rogue_config
+		rogue_config = null
+		return cfg
 	if not _explicit_path_this_session:
 		_load_path()
 	if config_path.is_empty():

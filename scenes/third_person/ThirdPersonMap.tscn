@@ -1,0 +1,597 @@
+[gd_scene load_steps=24 format=3 uid="uid://cf034blau3f8w"]
+
+[ext_resource type="Script" uid="uid://b88euajm8fl1c" path="res://scripts/third_person/third_person_map.gd" id="1_script"]
+[ext_resource type="PackedScene" uid="uid://c3e3q05wlle1o" path="res://scenes/third_person/ThirdPersonPlayer.tscn" id="3_player"]
+[ext_resource type="Environment" uid="uid://cxqmdhljk5tlw" path="res://scenes/explore_map_env.tres" id="4_env"]
+[ext_resource type="PackedScene" uid="uid://djjkn676h0agl" path="res://scenes/hex/HexGrass.tscn" id="5_hex"]
+[ext_resource type="Script" uid="uid://dnbxxfoirvuqg" path="res://scripts/third_person/tiles_container.gd" id="6_tiles_tool"]
+[ext_resource type="PackedScene" path="res://scenes/buildings/WallStraight.tscn" id="7_wall"]
+[ext_resource type="PackedScene" path="res://scenes/buildings/WallStraightGate.tscn" id="8_gate"]
+[ext_resource type="PackedScene" path="res://scenes/buildings/WallCornerAOutside.tscn" id="9_corner"]
+[ext_resource type="Script" uid="uid://ckembs37ebxka" path="res://scripts/third_person/building_interactable.gd" id="10_bld_script"]
+[ext_resource type="PackedScene" uid="uid://3kjttkjormkc" path="res://assets/KayKit_Medieval_Hexagon_Pack_1.0_FREE/Assets/gltf/buildings/blue/building_castle_blue.gltf" id="11_castle"]
+[ext_resource type="PackedScene" uid="uid://dovx3kykd5klq" path="res://assets/KayKit_Medieval_Hexagon_Pack_1.0_FREE/Assets/gltf/buildings/blue/building_market_blue.gltf" id="12_market"]
+[ext_resource type="PackedScene" uid="uid://c1rhngnjext37" path="res://assets/KayKit_Medieval_Hexagon_Pack_1.0_FREE/Assets/gltf/buildings/blue/building_tavern_blue.gltf" id="13_tavern"]
+[ext_resource type="PackedScene" uid="uid://bpokrqdt6ajp1" path="res://assets/KayKit_Medieval_Hexagon_Pack_1.0_FREE/Assets/gltf/buildings/blue/building_blacksmith_blue.gltf" id="14_blacksmith"]
+[ext_resource type="PackedScene" uid="uid://4c0i01cutely" path="res://assets/KayKit_Medieval_Hexagon_Pack_1.0_FREE/Assets/gltf/buildings/blue/building_barracks_blue.gltf" id="15_barracks"]
+[ext_resource type="PackedScene" uid="uid://dr0skbghj5wwr" path="res://assets/KayKit_Medieval_Hexagon_Pack_1.0_FREE/Assets/gltf/buildings/blue/building_church_blue.gltf" id="16_church"]
+[ext_resource type="PackedScene" uid="uid://bnglrnuu3gxpi" path="res://assets/KayKit_Medieval_Hexagon_Pack_1.0_FREE/Assets/gltf/buildings/blue/building_well_blue.gltf" id="17_well"]
+[ext_resource type="PackedScene" uid="uid://chbeua2wej023" path="res://assets/KayKit_Medieval_Hexagon_Pack_1.0_FREE/Assets/gltf/buildings/blue/building_archeryrange_blue.gltf" id="18_archery"]
+[ext_resource type="PackedScene" uid="uid://djjkk475o4kfa" path="res://scenes/hex/HexRoadA.tscn" id="19_roadA"]
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_bld_big"]
+size = Vector3(1.8, 2, 1.8)
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_bld_med"]
+size = Vector3(1.4, 1.6, 1.4)
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_bld_small"]
+size = Vector3(0.8, 1, 0.8)
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_gate"]
+size = Vector3(2, 2.5, 1.5)
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_ground"]
+size = Vector3(100, 0.1, 100)
+
+[node name="ThirdPersonMap" type="Node3D"]
+script = ExtResource("1_script")
+
+[node name="WorldEnvironment" type="WorldEnvironment" parent="."]
+environment = ExtResource("4_env")
+
+[node name="DirectionalLight3D" type="DirectionalLight3D" parent="."]
+transform = Transform3D(0.612, -0.354, 0.707, 0, 0.707, 0.707, -0.791, -0.612, 0.354, 0, 20, 15)
+light_energy = 1.0
+light_indirect_energy = 0.3
+shadow_enabled = true
+shadow_blur = 1.5
+directional_shadow_mode = 1
+
+[node name="FillLight" type="DirectionalLight3D" parent="."]
+transform = Transform3D(-0.5, -0.25, -0.829, 0, 0.857, -0.514, 0.866, -0.453, -0.217, 0, 15, 10)
+light_color = Color(0.85, 0.9, 1, 1)
+light_energy = 0.35
+light_indirect_energy = 0.15
+
+[node name="Tiles" type="Node3D" parent="."]
+script = ExtResource("6_tiles_tool")
+
+[node name="Hex_n4_0" parent="Tiles" instance=ExtResource("5_hex")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -6.928203, 0, 0)
+
+[node name="Hex_n4_1" parent="Tiles" instance=ExtResource("5_hex")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -6.0621777, 0, 1.5)
+
+[node name="Hex_n4_2" parent="Tiles" instance=ExtResource("5_hex")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -5.196152, 0, 3)
+
+[node name="Hex_n4_3" parent="Tiles" instance=ExtResource("5_hex")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -4.330127, 0, 4.5)
+
+[node name="Hex_n4_4" parent="Tiles" instance=ExtResource("5_hex")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -3.4641016, 0, 6)
+
+[node name="Hex_n3_n1" parent="Tiles" instance=ExtResource("5_hex")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -6.0621777, 0, -1.5)
+
+[node name="Hex_n3_0" parent="Tiles" instance=ExtResource("5_hex")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -5.196152, 0, 0)
+
+[node name="Hex_n3_1" parent="Tiles" instance=ExtResource("5_hex")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -4.330127, 0, 1.5)
+
+[node name="Hex_n3_2" parent="Tiles" instance=ExtResource("5_hex")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -3.4641016, 0, 3)
+
+[node name="Hex_n3_3" parent="Tiles" instance=ExtResource("5_hex")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -2.598076, 0, 4.5)
+
+[node name="Hex_n3_4" parent="Tiles" instance=ExtResource("5_hex")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.7320508, 0, 6)
+
+[node name="Hex_n2_n2" parent="Tiles" instance=ExtResource("5_hex")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -5.196152, 0, -3)
+
+[node name="Hex_n2_n1" parent="Tiles" instance=ExtResource("5_hex")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -4.330127, 0, -1.5)
+
+[node name="Hex_n2_0" parent="Tiles" instance=ExtResource("5_hex")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -3.4641016, 0, 0)
+
+[node name="Hex_n2_1" parent="Tiles" instance=ExtResource("5_hex")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -2.598076, 0, 1.5)
+
+[node name="Hex_n2_2" parent="Tiles" instance=ExtResource("5_hex")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.7320508, 0, 3)
+
+[node name="Hex_n2_3" parent="Tiles" instance=ExtResource("5_hex")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.8660254, 0, 4.5)
+
+[node name="Hex_n2_4" parent="Tiles" instance=ExtResource("5_hex")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 6)
+
+[node name="Hex_n1_n3" parent="Tiles" instance=ExtResource("5_hex")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -4.330127, 0, -4.5)
+
+[node name="Hex_n1_n2" parent="Tiles" instance=ExtResource("5_hex")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -3.4641016, 0, -3)
+
+[node name="Hex_n1_n1" parent="Tiles" instance=ExtResource("5_hex")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -2.598076, 0, -1.5)
+
+[node name="Road_n1_0" parent="Tiles" instance=ExtResource("19_roadA")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.7320508, 0, 0)
+
+[node name="Road_n1_1" parent="Tiles" instance=ExtResource("19_roadA")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.8660254, 0, 1.5)
+
+[node name="Hex_n1_2" parent="Tiles" instance=ExtResource("5_hex")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 3)
+
+[node name="Road_n1_3" parent="Tiles" instance=ExtResource("19_roadA")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.8660254, 0, 4.5)
+
+[node name="Road_n1_4" parent="Tiles" instance=ExtResource("19_roadA")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.7320508, 0, 6)
+
+[node name="Hex_0_n4" parent="Tiles" instance=ExtResource("5_hex")]
+transform = Transform3D(0.99997514, 0, 0.007051072, 0, 1, 0, -0.007051072, 0, 0.99997514, -3.4641016, 0, -6)
+
+[node name="Hex_0_n3" parent="Tiles" instance=ExtResource("5_hex")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -2.598076, 0, -4.5)
+
+[node name="Hex_0_n2" parent="Tiles" instance=ExtResource("5_hex")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.7320508, 0, -3)
+
+[node name="Hex_0_n1" parent="Tiles" instance=ExtResource("5_hex")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.8660254, 0, -1.5)
+
+[node name="Hex_0_0" parent="Tiles" instance=ExtResource("5_hex")]
+
+[node name="Hex_0_1" parent="Tiles" instance=ExtResource("5_hex")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.8660254, 0, 1.5)
+
+[node name="Road_0_2" parent="Tiles" instance=ExtResource("19_roadA")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.7320508, 0, 3)
+
+[node name="Road_0_3" parent="Tiles" instance=ExtResource("19_roadA")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2.598076, 0, 4.5)
+
+[node name="Hex_0_4" parent="Tiles" instance=ExtResource("5_hex")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 3.4641016, 0, 6)
+
+[node name="Hex_1_n4" parent="Tiles" instance=ExtResource("5_hex")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.7320508, 0, -6)
+
+[node name="Hex_1_n3" parent="Tiles" instance=ExtResource("5_hex")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.8660254, 0, -4.5)
+
+[node name="Road_1_n2" parent="Tiles" instance=ExtResource("19_roadA")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -3)
+
+[node name="Road_1_n1" parent="Tiles" instance=ExtResource("19_roadA")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.8660254, 0, -1.5)
+
+[node name="Hex_1_0" parent="Tiles" instance=ExtResource("5_hex")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.7320508, 0, 0)
+
+[node name="Hex_1_1" parent="Tiles" instance=ExtResource("5_hex")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2.598076, 0, 1.5)
+
+[node name="Hex_1_2" parent="Tiles" instance=ExtResource("5_hex")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 3.4641016, 0, 3)
+
+[node name="Hex_1_3" parent="Tiles" instance=ExtResource("5_hex")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 4.330127, 0, 4.5)
+
+[node name="Hex_2_n4" parent="Tiles" instance=ExtResource("5_hex")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -6)
+
+[node name="Hex_2_n3" parent="Tiles" instance=ExtResource("5_hex")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.8660254, 0, -4.5)
+
+[node name="Hex_2_n2" parent="Tiles" instance=ExtResource("5_hex")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.7320508, 0, -3)
+
+[node name="Hex_2_n1" parent="Tiles" instance=ExtResource("5_hex")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2.598076, 0, -1.5)
+
+[node name="Hex_2_0" parent="Tiles" instance=ExtResource("5_hex")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 3.4641016, 0, 0)
+
+[node name="Hex_2_1" parent="Tiles" instance=ExtResource("5_hex")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 4.330127, 0, 1.5)
+
+[node name="Hex_2_2" parent="Tiles" instance=ExtResource("5_hex")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 5.196152, 0, 3)
+
+[node name="Hex_3_n4" parent="Tiles" instance=ExtResource("5_hex")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.7320508, 0, -6)
+
+[node name="Hex_3_n3" parent="Tiles" instance=ExtResource("5_hex")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2.598076, 0, -4.5)
+
+[node name="Hex_3_n2" parent="Tiles" instance=ExtResource("5_hex")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 3.4641016, 0, -3)
+
+[node name="Hex_3_n1" parent="Tiles" instance=ExtResource("5_hex")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 4.330127, 0, -1.5)
+
+[node name="Hex_3_0" parent="Tiles" instance=ExtResource("5_hex")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 5.196152, 0, 0)
+
+[node name="Hex_3_1" parent="Tiles" instance=ExtResource("5_hex")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 6.0621777, 0, 1.5)
+
+[node name="Hex_4_n4" parent="Tiles" instance=ExtResource("5_hex")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 3.4641016, 0, -6)
+
+[node name="Hex_4_n3" parent="Tiles" instance=ExtResource("5_hex")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 4.330127, 0, -4.5)
+
+[node name="Hex_4_n2" parent="Tiles" instance=ExtResource("5_hex")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 5.196152, 0, -3)
+
+[node name="Hex_4_n1" parent="Tiles" instance=ExtResource("5_hex")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 6.0621777, 0, -1.5)
+
+[node name="Hex_4_0" parent="Tiles" instance=ExtResource("5_hex")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 6.928203, 0, 0)
+
+[node name="HexCorner_0" parent="Tiles" instance=ExtResource("9_corner")]
+transform = Transform3D(0.49454853, 0, 0.8691497, 0, 1, 0, -0.8691497, 0, 0.49454853, 8, 0, 0)
+
+[node name="HexWall_S0_0" parent="Tiles" instance=ExtResource("7_wall")]
+transform = Transform3D(0.49999976, 0, 0.8660251, 0, 1, 0, -0.8660251, 0, 0.49999976, 7.070877, 0, 1.6173894)
+
+[node name="HexWall_S0_1" parent="Tiles" instance=ExtResource("7_wall")]
+transform = Transform3D(0.49999976, 0, 0.8660251, 0, 1, 0, -0.8660251, 0, 0.49999976, 6.5, 0, 2.598076)
+
+[node name="HexWall_S0_2" parent="Tiles" instance=ExtResource("7_wall")]
+transform = Transform3D(0.49999976, 0, 0.8660251, 0, 1, 0, -0.8660251, 0, 0.49999976, 5.5, 0, 4.330127)
+
+[node name="HexWall_S0_3" parent="Tiles" instance=ExtResource("7_wall")]
+transform = Transform3D(0.49999976, 0, 0.8660251, 0, 1, 0, -0.8660251, 0, 0.49999976, 4.7808576, 0, 5.5708985)
+
+[node name="HexCorner_1" parent="Tiles" instance=ExtResource("9_corner")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 4, 0, 6.928203)
+
+[node name="HexWall_S1_0" parent="Tiles" instance=ExtResource("7_wall")]
+transform = Transform3D(0.8137325, 0, 0, 0, 1, 0, 0, 0, 1, 2.3865602, 0, 6.927974)
+
+[node name="HexGate" parent="Tiles" instance=ExtResource("8_gate")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1, 0, 6.928203)
+
+[node name="HexWall_S1_2" parent="Tiles" instance=ExtResource("7_wall")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1, 0, 6.928203)
+
+[node name="HexWall_S1_3" parent="Tiles" instance=ExtResource("7_wall")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -2.0211928, 0, 6.928203)
+
+[node name="HexCorner_2" parent="Tiles" instance=ExtResource("9_corner")]
+transform = Transform3D(0.5036681, 0, -0.86389697, 0, 1, 0, 0.86389697, 0, 0.5036681, -4, 0, 6.928203)
+
+[node name="HexWall_S2_0" parent="Tiles" instance=ExtResource("7_wall")]
+transform = Transform3D(0.49999976, 0, -0.8660251, 0, 1, 0, 0.8660251, 0, 0.49999976, -4.9873714, 0, 5.2256837)
+
+[node name="HexWall_S2_1" parent="Tiles" instance=ExtResource("7_wall")]
+transform = Transform3D(0.49999976, 0, -0.8660251, 0, 1, 0, 0.8660251, 0, 0.49999976, -5.5, 0, 4.330127)
+
+[node name="HexWall_S2_2" parent="Tiles" instance=ExtResource("7_wall")]
+transform = Transform3D(0.49999976, 0, -0.8660251, 0, 1, 0, 0.8660251, 0, 0.49999976, -6.5, 0, 2.598076)
+
+[node name="HexWall_S2_3" parent="Tiles" instance=ExtResource("7_wall")]
+transform = Transform3D(0.49999976, 0, -0.8660251, 0, 1, 0, 0.8660251, 0, 0.49999976, -7.0594296, 0, 1.6294262)
+
+[node name="HexCorner_3" parent="Tiles" instance=ExtResource("9_corner")]
+transform = Transform3D(-0.48970166, 0, -0.87188977, 0, 1, 0, 0.87188977, 0, -0.48970166, -8, 0, 0)
+
+[node name="HexWall_S3_0" parent="Tiles" instance=ExtResource("7_wall")]
+transform = Transform3D(-0.49999985, 0, -0.86602503, 0, 1, 0, 0.86602503, 0, -0.49999985, -7.014343, 0, -1.723156)
+
+[node name="HexWall_S3_1" parent="Tiles" instance=ExtResource("7_wall")]
+transform = Transform3D(-0.49999985, 0, -0.86602503, 0, 1, 0, 0.86602503, 0, -0.49999985, -6.5, 0, -2.598076)
+
+[node name="HexWall_S3_2" parent="Tiles" instance=ExtResource("7_wall")]
+transform = Transform3D(-0.49999985, 0, -0.86602503, 0, 1, 0, 0.86602503, 0, -0.49999985, -5.5, 0, -4.330127)
+
+[node name="HexWall_S3_3" parent="Tiles" instance=ExtResource("7_wall")]
+transform = Transform3D(-0.49999985, 0, -0.86602503, 0, 1, 0, 0.86602503, 0, -0.49999985, -4.999918, 0, -5.197566)
+
+[node name="HexCorner_4" parent="Tiles" instance=ExtResource("9_corner")]
+transform = Transform3D(-1, 0, 0, 0, 1, 0, 0, 0, -1, -4, 0, -6.928203)
+
+[node name="HexWall_S4_0" parent="Tiles" instance=ExtResource("7_wall")]
+transform = Transform3D(-1, 0, -8.742278e-08, 0, 1, 0, 8.742278e-08, 0, -1, -2.0064943, 0, -6.928203)
+
+[node name="HexWall_S4_1" parent="Tiles" instance=ExtResource("7_wall")]
+transform = Transform3D(-1, 0, -8.742278e-08, 0, 1, 0, 8.742278e-08, 0, -1, -1, 0, -6.928203)
+
+[node name="HexWall_S4_2" parent="Tiles" instance=ExtResource("7_wall")]
+transform = Transform3D(-1, 0, -8.742278e-08, 0, 1, 0, 8.742278e-08, 0, -1, 1, 0, -6.928203)
+
+[node name="HexWall_S4_3" parent="Tiles" instance=ExtResource("7_wall")]
+transform = Transform3D(-1, 0, -8.742278e-08, 0, 1, 0, 8.742278e-08, 0, -1, 2.0248804, 0, -6.928203)
+
+[node name="HexCorner_5" parent="Tiles" instance=ExtResource("9_corner")]
+transform = Transform3D(-0.5027783, 0, 0.8644151, 0, 1, 0, -0.8644151, 0, -0.5027783, 4, 0, -6.928203)
+
+[node name="HexWall_S5_0" parent="Tiles" instance=ExtResource("7_wall")]
+transform = Transform3D(-0.49999985, 0, 0.86602503, 0, 1, 0, -0.86602503, 0, -0.49999985, 4.969641, 0, -5.245894)
+
+[node name="HexWall_S5_1" parent="Tiles" instance=ExtResource("7_wall")]
+transform = Transform3D(-0.49999985, 0, 0.86602503, 0, 1, 0, -0.86602503, 0, -0.49999985, 5.5, 0, -4.330127)
+
+[node name="HexWall_S5_2" parent="Tiles" instance=ExtResource("7_wall")]
+transform = Transform3D(-0.49999985, 0, 0.86602503, 0, 1, 0, -0.86602503, 0, -0.49999985, 6.5, 0, -2.598076)
+
+[node name="HexWall_S5_3" parent="Tiles" instance=ExtResource("7_wall")]
+transform = Transform3D(-0.49999985, 0, 0.86602503, 0, 1, 0, -0.86602503, 0, -0.49999985, 7.0001693, 0, -1.7306925)
+
+[node name="Buildings" type="Node3D" parent="."]
+
+[node name="Castillo" type="Node3D" parent="Buildings"]
+script = ExtResource("10_bld_script")
+nombre_edificio = "Castillo"
+
+[node name="Mesh" parent="Buildings/Castillo" instance=ExtResource("11_castle")]
+
+[node name="PhysicsBody" type="StaticBody3D" parent="Buildings/Castillo/Mesh"]
+collision_layer = 1
+collision_mask = 0
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Buildings/Castillo/Mesh/PhysicsBody"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 0)
+shape = SubResource("BoxShape3D_bld_big")
+
+[node name="StaticBody3D" type="StaticBody3D" parent="Buildings/Castillo"]
+collision_layer = 2
+collision_mask = 0
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Buildings/Castillo/StaticBody3D"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 0)
+shape = SubResource("BoxShape3D_bld_big")
+
+[node name="Mercado" type="Node3D" parent="Buildings"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.866, 0, 3)
+script = ExtResource("10_bld_script")
+nombre_edificio = "Mercado"
+
+[node name="Mesh" parent="Buildings/Mercado" instance=ExtResource("12_market")]
+transform = Transform3D(-0.6069042, 0, 0.79477495, 0, 1, 0, -0.79477495, 0, -0.6069042, -1.2485101, 0, 1.4308186)
+
+[node name="PhysicsBody" type="StaticBody3D" parent="Buildings/Mercado/Mesh"]
+collision_layer = 1
+collision_mask = 0
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Buildings/Mercado/Mesh/PhysicsBody"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.8, 0)
+shape = SubResource("BoxShape3D_bld_med")
+
+[node name="StaticBody3D" type="StaticBody3D" parent="Buildings/Mercado"]
+collision_layer = 2
+collision_mask = 0
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Buildings/Mercado/StaticBody3D"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.249, 0.8, 1.431)
+shape = SubResource("BoxShape3D_bld_med")
+
+[node name="Taberna" type="Node3D" parent="Buildings"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2.598, 0, 1.5)
+script = ExtResource("10_bld_script")
+nombre_edificio = "Taberna"
+
+[node name="Mesh" parent="Buildings/Taberna" instance=ExtResource("13_tavern")]
+transform = Transform3D(0.08962446, 0, -0.9959756, 0, 1, 0, 0.9959756, 0, 0.08962446, 1.7118659, 0, 0)
+
+[node name="PhysicsBody" type="StaticBody3D" parent="Buildings/Taberna/Mesh"]
+collision_layer = 1
+collision_mask = 0
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Buildings/Taberna/Mesh/PhysicsBody"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.8, 0)
+shape = SubResource("BoxShape3D_bld_med")
+
+[node name="StaticBody3D" type="StaticBody3D" parent="Buildings/Taberna"]
+collision_layer = 2
+collision_mask = 0
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Buildings/Taberna/StaticBody3D"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.712, 0.8, 0)
+shape = SubResource("BoxShape3D_bld_med")
+
+[node name="Herreria" type="Node3D" parent="Buildings"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2.598, 0, -1.5)
+script = ExtResource("10_bld_script")
+nombre_edificio = "Herrería"
+
+[node name="Mesh" parent="Buildings/Herreria" instance=ExtResource("14_blacksmith")]
+transform = Transform3D(0.61578524, 0, -0.78791404, 0, 1, 0, 0.78791404, 0, 0.61578524, 1.2608716, 0, 0)
+
+[node name="PhysicsBody" type="StaticBody3D" parent="Buildings/Herreria/Mesh"]
+collision_layer = 1
+collision_mask = 0
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Buildings/Herreria/Mesh/PhysicsBody"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.8, 0)
+shape = SubResource("BoxShape3D_bld_med")
+
+[node name="StaticBody3D" type="StaticBody3D" parent="Buildings/Herreria"]
+collision_layer = 2
+collision_mask = 0
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Buildings/Herreria/StaticBody3D"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.261, 0.8, 0)
+shape = SubResource("BoxShape3D_bld_med")
+
+[node name="Cuartel" type="Node3D" parent="Buildings"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -3.464, 0, 0)
+script = ExtResource("10_bld_script")
+nombre_edificio = "Cuartel"
+
+[node name="Mesh" parent="Buildings/Cuartel" instance=ExtResource("15_barracks")]
+transform = Transform3D(0.30926594, 0, 0.95097554, 0, 1, 0, -0.95097554, 0, 0.30926594, -1.2940724, 0, -1.1415833)
+
+[node name="PhysicsBody" type="StaticBody3D" parent="Buildings/Cuartel/Mesh"]
+collision_layer = 1
+collision_mask = 0
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Buildings/Cuartel/Mesh/PhysicsBody"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.8, 0)
+shape = SubResource("BoxShape3D_bld_med")
+
+[node name="StaticBody3D" type="StaticBody3D" parent="Buildings/Cuartel"]
+collision_layer = 2
+collision_mask = 0
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Buildings/Cuartel/StaticBody3D"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.294, 0.8, -1.142)
+shape = SubResource("BoxShape3D_bld_med")
+
+[node name="Iglesia" type="Node3D" parent="Buildings"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -2.598, 0, 3)
+script = ExtResource("10_bld_script")
+nombre_edificio = "Iglesia"
+
+[node name="Mesh" parent="Buildings/Iglesia" instance=ExtResource("16_church")]
+transform = Transform3D(0.98203784, 0, 0.18868409, 0, 1, 0, -0.18868409, 0, 0.98203784, -1.2978611, 0, -0.47638464)
+
+[node name="PhysicsBody" type="StaticBody3D" parent="Buildings/Iglesia/Mesh"]
+collision_layer = 1
+collision_mask = 0
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Buildings/Iglesia/Mesh/PhysicsBody"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.8, 0)
+shape = SubResource("BoxShape3D_bld_med")
+
+[node name="StaticBody3D" type="StaticBody3D" parent="Buildings/Iglesia"]
+collision_layer = 2
+collision_mask = 0
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Buildings/Iglesia/StaticBody3D"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.298, 0.8, -0.476)
+shape = SubResource("BoxShape3D_bld_med")
+
+[node name="Pozo" type="Node3D" parent="Buildings"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.866, 0, 1.5)
+script = ExtResource("10_bld_script")
+nombre_edificio = "Pozo"
+
+[node name="Mesh" parent="Buildings/Pozo" instance=ExtResource("17_well")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2.091322, 0, 1.3919282)
+
+[node name="PhysicsBody" type="StaticBody3D" parent="Buildings/Pozo/Mesh"]
+collision_layer = 1
+collision_mask = 0
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Buildings/Pozo/Mesh/PhysicsBody"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.5, 0)
+shape = SubResource("BoxShape3D_bld_small")
+
+[node name="StaticBody3D" type="StaticBody3D" parent="Buildings/Pozo"]
+collision_layer = 2
+collision_mask = 0
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Buildings/Pozo/StaticBody3D"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2.091, 0.5, 1.392)
+shape = SubResource("BoxShape3D_bld_small")
+
+[node name="CampoDeTiro" type="Node3D" parent="Buildings"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.866, 0, -4.5)
+script = ExtResource("10_bld_script")
+nombre_edificio = "Campo de Tiro"
+
+[node name="Mesh" parent="Buildings/CampoDeTiro" instance=ExtResource("18_archery")]
+
+[node name="PhysicsBody" type="StaticBody3D" parent="Buildings/CampoDeTiro/Mesh"]
+collision_layer = 1
+collision_mask = 0
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Buildings/CampoDeTiro/Mesh/PhysicsBody"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.8, 0)
+shape = SubResource("BoxShape3D_bld_med")
+
+[node name="StaticBody3D" type="StaticBody3D" parent="Buildings/CampoDeTiro"]
+collision_layer = 2
+collision_mask = 0
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Buildings/CampoDeTiro/StaticBody3D"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.8, 0)
+shape = SubResource("BoxShape3D_bld_med")
+
+[node name="PuertaCiudad" type="Node3D" parent="Buildings"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1, 0, 6.928203)
+script = ExtResource("10_bld_script")
+nombre_edificio = "Puerta de la Ciudad"
+
+[node name="StaticBody3D" type="StaticBody3D" parent="Buildings/PuertaCiudad"]
+collision_layer = 2
+collision_mask = 0
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Buildings/PuertaCiudad/StaticBody3D"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.25, 0)
+shape = SubResource("BoxShape3D_gate")
+
+[node name="GroundCollision" type="StaticBody3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.05, 0)
+collision_mask = 0
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="GroundCollision"]
+shape = SubResource("BoxShape3D_ground")
+
+[node name="ThirdPersonPlayer" parent="." instance=ExtResource("3_player")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1, 0.6, 5.5)
+
+[node name="UI" type="CanvasLayer" parent="."]
+
+[node name="BackButton" type="Button" parent="UI"]
+anchors_preset = 1
+anchor_left = 1.0
+anchor_right = 1.0
+offset_left = -180.0
+offset_top = 20.0
+offset_right = -20.0
+offset_bottom = 60.0
+text = "Volver"
+
+[node name="InteractHint" type="Label" parent="UI"]
+visible = false
+anchors_preset = 7
+anchor_left = 0.5
+anchor_top = 1.0
+anchor_right = 0.5
+anchor_bottom = 1.0
+offset_left = -200.0
+offset_top = -80.0
+offset_right = 200.0
+offset_bottom = -50.0
+grow_horizontal = 2
+grow_vertical = 0
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+theme_override_colors/font_shadow_color = Color(0, 0, 0, 0.8)
+theme_override_constants/shadow_offset_x = 2
+theme_override_constants/shadow_offset_y = 2
+theme_override_font_sizes/font_size = 18
+text = "Presiona E"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="NombreEdificio" type="Label" parent="UI"]
+visible = false
+anchors_preset = 5
+anchor_left = 0.5
+anchor_right = 0.5
+offset_left = -250.0
+offset_top = 40.0
+offset_right = 250.0
+offset_bottom = 90.0
+grow_horizontal = 2
+theme_override_colors/font_color = Color(1, 0.95, 0.7, 1)
+theme_override_colors/font_shadow_color = Color(0, 0, 0, 0.9)
+theme_override_constants/shadow_offset_x = 2
+theme_override_constants/shadow_offset_y = 2
+theme_override_font_sizes/font_size = 28
+text = "Nombre del Edificio"
+horizontal_alignment = 1
+vertical_alignment = 1
