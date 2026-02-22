@@ -9,4 +9,5 @@ item_type = 3
 description = "Restaura 60 HP y devuelve 1 SP al usuario."
 effect_value = 60
 buy_price = 60
+model_path = "res://assets/items/potions/bottle_A_labeled_green.gltf"
 sell_price = 30

@@ -1,0 +1,15 @@
+[gd_resource type="Resource" script_class="ItemData" load_steps=2 format=3 uid="uid://hmFzLp40mWMWl"]
+
+[ext_resource type="Script" path="res://scripts/data/ItemData.gd" id="1_script"]
+
+[resource]
+script = ExtResource("1_script")
+display_name = "Bomba de Humo"
+item_type = 3
+description = "Crea una cortina de humo. Reduce hit_chance de enemigos durante 2 turnos."
+effect_value = 0
+stats_mod = {}
+icon_path = ""
+model_path = "res://assets/props/consumibles/smokebomb.gltf"
+sell_price = 15
+buy_price = 35

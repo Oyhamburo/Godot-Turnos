@@ -9,4 +9,5 @@ item_type = 1
 description = "Restaura 30 puntos de maná."
 effect_value = 30
 buy_price = 25
+model_path = "res://assets/items/potions/bottle_B_green.gltf"
 sell_price = 12

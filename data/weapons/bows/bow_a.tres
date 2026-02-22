@@ -1,0 +1,25 @@
+[gd_resource type="Resource" script_class="WeaponData" load_steps=2 format=3 uid="uid://n0W5QYNzMqSBm"]
+
+[ext_resource type="Script" path="res://scripts/data/WeaponData.gd" id="1_script"]
+
+[resource]
+script = ExtResource("1_script")
+display_name = "Arco A"
+weapon_type = 1
+slot = 2
+scene_3d_path = "res://assets/weapons/bows/fantasy_bits/bow_A_withString.gltf"
+hand_offset_pos = Vector3(0, 0, 0)
+hand_offset_rot = Vector3(0, 0, 0)
+visual_hand = 0
+projectile_scene_path = "res://assets/weapons/projectiles/adventurer/arrow_bow.gltf"
+projectile_bundle_path = "res://assets/weapons/projectiles/adventurer/arrow_bow_bundle.gltf"
+bonus_physical_damage = 0
+bonus_magic_damage = 0
+bonus_armor = 0
+bonus_magic_resist = 0
+bonus_speed = 0
+bonus_evasion = 0.0
+bonus_crit_chance = 0.0
+buy_price = 45
+sell_price = 20
+abilities = [{"display_name": "Disparar", "physical": 8, "magic": 0, "hit_chance": 0.85, "range": 99, "anim_name": "ranged_bow_draw"}]

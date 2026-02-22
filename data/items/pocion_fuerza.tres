@@ -9,6 +9,7 @@ item_type = 11
 description = "Aumenta el daño físico durante 3 turnos."
 effect_value = 0
 buy_price = 40
+model_path = "res://assets/items/potions/bottle_B_brown.gltf"
 sell_price = 20
 status_effect_tipo = 4
 status_effect_duracion = 3

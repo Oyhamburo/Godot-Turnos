@@ -1,0 +1,15 @@
+[gd_resource type="Resource" script_class="ItemData" load_steps=2 format=3 uid="uid://e6C9XZnq93AZ1"]
+
+[ext_resource type="Script" path="res://scripts/data/ItemData.gd" id="1_script"]
+
+[resource]
+script = ExtResource("1_script")
+display_name = "Libro de Hechizos"
+item_type = 10
+description = "Grimorio de mago. Otorga +5 al daño mágico."
+effect_value = 0
+stats_mod = {"magic": 5}
+icon_path = ""
+model_path = "res://assets/props/magia/spellbook_closed.gltf"
+sell_price = 28
+buy_price = 60

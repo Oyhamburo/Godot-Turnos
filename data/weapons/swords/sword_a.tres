@@ -1,0 +1,23 @@
+[gd_resource type="Resource" script_class="WeaponData" load_steps=2 format=3 uid="uid://RqlqPnIECUGA6"]
+
+[ext_resource type="Script" path="res://scripts/data/WeaponData.gd" id="1_script"]
+
+[resource]
+script = ExtResource("1_script")
+display_name = "Espada A"
+weapon_type = 0
+slot = 0
+scene_3d_path = "res://assets/weapons/swords/fantasy_bits/sword_A.gltf"
+hand_offset_pos = Vector3(0, 0, 0)
+hand_offset_rot = Vector3(0, 0, 0)
+visual_hand = 0
+bonus_physical_damage = 4
+bonus_magic_damage = 0
+bonus_armor = 0
+bonus_magic_resist = 0
+bonus_speed = 0
+bonus_evasion = 0.0
+bonus_crit_chance = 0.0
+buy_price = 35
+sell_price = 15
+abilities = [{"display_name": "Tajo", "physical": 10, "magic": 0, "hit_chance": 0.9, "range": 1, "anim_name": "melee_1h_chop"}]

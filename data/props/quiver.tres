@@ -1,0 +1,15 @@
+[gd_resource type="Resource" script_class="ItemData" load_steps=2 format=3 uid="uid://A2HqapUjgKKVp"]
+
+[ext_resource type="Script" path="res://scripts/data/ItemData.gd" id="1_script"]
+
+[resource]
+script = ExtResource("1_script")
+display_name = "Carcaj"
+item_type = 10
+description = "Portador de flechas. Aumenta el daño de proyectiles."
+effect_value = 0
+stats_mod = {}
+icon_path = ""
+model_path = "res://assets/props/accesorios/quiver.gltf"
+sell_price = 12
+buy_price = 30

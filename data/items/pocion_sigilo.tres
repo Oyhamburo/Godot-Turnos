@@ -9,6 +9,7 @@ item_type = 11
 description = "Vuelve invisible al usuario durante 2 turnos. No targeteable."
 effect_value = 0
 buy_price = 50
+model_path = "res://assets/items/potions/bottle_C_brown.gltf"
 sell_price = 25
 status_effect_tipo = 11
 status_effect_duracion = 2

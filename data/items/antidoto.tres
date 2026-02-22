@@ -9,4 +9,5 @@ item_type = 2
 description = "Alivia el malestar y restaura 15 HP."
 effect_value = 15
 buy_price = 20
+model_path = "res://assets/items/potions/bottle_A_brown.gltf"
 sell_price = 10
