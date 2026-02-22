@@ -70,11 +70,11 @@ const PLAYER_DATA: String = "res://data/units/rogue_player_mannequin.tres"
 
 ## Pool de armas para recompensas (paths).
 const WEAPON_REWARD_POOL: Array[String] = [
-	"res://data/weapons/player_sword.tres",
-	"res://data/weapons/player_bow.tres",
-	"res://data/weapons/player_axe_2h.tres",
-	"res://data/weapons/player_shield.tres",
-	"res://data/weapons/player_dagger.tres",
+	"res://data/weapons/swords/player_sword.tres",
+	"res://data/weapons/bows/player_bow.tres",
+	"res://data/weapons/axes/player_axe_2h.tres",
+	"res://data/weapons/shields/player_shield.tres",
+	"res://data/weapons/swords/player_dagger.tres",
 ]
 
 ## Pool de pociones para recompensas.
@@ -104,7 +104,7 @@ func iniciar_run() -> void:
 	rogue_inventory = Inventory.new()
 	rogue_inventory.gold = 0
 	# Arma inicial: puños del mannequin
-	var arma_inicial_path := "res://data/weapons/mannequin_large_fists.tres"
+	var arma_inicial_path := "res://data/weapons/unarmed/mannequin_large_fists.tres"
 	if ResourceLoader.exists(arma_inicial_path):
 		var arma: WeaponData = load(arma_inicial_path) as WeaponData
 		if arma:

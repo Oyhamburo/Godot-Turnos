@@ -1,4 +1,4 @@
-[gd_resource type="Resource" script_class="WeaponData" load_steps=2 format=3]
+[gd_resource type="Resource" script_class="WeaponData" load_steps=2 format=3 uid="uid://EH51S5TZ8Vr1V"]
 
 [ext_resource type="Script" path="res://scripts/data/WeaponData.gd" id="1_script"]
 
@@ -7,7 +7,7 @@ script = ExtResource("1_script")
 display_name = "Daga"
 weapon_type = 4
 slot = 0
-scene_3d_path = "res://assets/KayKit_Adventurers_2.0_FREE/Assets/gltf/dagger.gltf"
+scene_3d_path = "res://assets/weapons/swords/adventurer/dagger.gltf"
 hand_offset_pos = Vector3(-0.03, 0.12, 0.01)
 hand_offset_rot = Vector3(3.1416, -0.0061, 1.2451)
 bonus_physical_damage = 3

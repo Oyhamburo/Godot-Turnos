@@ -1,4 +1,4 @@
-[gd_resource type="Resource" script_class="WeaponData" load_steps=2 format=3]
+[gd_resource type="Resource" script_class="WeaponData" load_steps=2 format=3 uid="uid://p3cmh13EhXcV0"]
 
 [ext_resource type="Script" path="res://scripts/data/WeaponData.gd" id="1_script"]
 
@@ -7,7 +7,7 @@ script = ExtResource("1_script")
 display_name = "Escudo Cuadrado"
 weapon_type = 8
 slot = 1
-scene_3d_path = "res://assets/KayKit_Adventurers_2.0_FREE/Assets/gltf/shield_square.gltf"
+scene_3d_path = "res://assets/weapons/shields/adventurer/shield_square.gltf"
 hand_offset_pos = Vector3(0, 0, 0)
 hand_offset_rot = Vector3(0, 0, 0)
 bonus_physical_damage = 0

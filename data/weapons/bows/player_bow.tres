@@ -1,4 +1,4 @@
-[gd_resource type="Resource" script_class="WeaponData" load_steps=2 format=3]
+[gd_resource type="Resource" script_class="WeaponData" load_steps=2 format=3 uid="uid://6i97qYCYPtuiO"]
 
 [ext_resource type="Script" path="res://scripts/data/WeaponData.gd" id="1_script"]
 
@@ -7,12 +7,12 @@ script = ExtResource("1_script")
 display_name = "Arco"
 weapon_type = 1
 slot = 2
-scene_3d_path = "res://assets/KayKit_Adventurers_2.0_FREE/Assets/gltf/bow_withString.gltf"
+scene_3d_path = "res://assets/weapons/bows/adventurer/bow_withString.gltf"
 hand_offset_pos = Vector3(0.01, 0.1, -0.01)
 hand_offset_rot = Vector3(-0.33039084, 1.2603023, 1.6311847)
 visual_hand = 1
-projectile_scene_path = "res://assets/KayKit_Adventurers_2.0_FREE/Assets/gltf/arrow_bow.gltf"
-projectile_bundle_path = "res://assets/KayKit_Adventurers_2.0_FREE/Assets/gltf/arrow_bow_bundle.gltf"
+projectile_scene_path = "res://assets/weapons/projectiles/adventurer/arrow_bow.gltf"
+projectile_bundle_path = "res://assets/weapons/projectiles/adventurer/arrow_bow_bundle.gltf"
 bonus_physical_damage = 4
 bonus_speed = 1
 bonus_crit_chance = 0.05

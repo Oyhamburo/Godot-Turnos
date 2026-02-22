@@ -20,16 +20,16 @@ const C_BG_DARK   := Color(0.06, 0.07, 0.12, 0.96)
 const PANEL_SIZE  := Vector2(1100, 580)
 
 const CATALOGO_PATHS := [
-	"res://data/weapons/player_sword.tres",
-	"res://data/weapons/player_dagger.tres",
-	"res://data/weapons/sword_2handed.tres",
-	"res://data/weapons/sword_color.tres",
-	"res://data/weapons/axe_1handed.tres",
-	"res://data/weapons/player_axe_2h.tres",
-	"res://data/weapons/player_shield.tres",
-	"res://data/weapons/shield_square.tres",
-	"res://data/weapons/shield_badge.tres",
-	"res://data/weapons/shield_spikes.tres",
+	"res://data/weapons/swords/player_sword.tres",
+	"res://data/weapons/swords/player_dagger.tres",
+	"res://data/weapons/swords/sword_2handed.tres",
+	"res://data/weapons/swords/sword_color.tres",
+	"res://data/weapons/axes/axe_1handed.tres",
+	"res://data/weapons/axes/player_axe_2h.tres",
+	"res://data/weapons/shields/player_shield.tres",
+	"res://data/weapons/shields/shield_square.tres",
+	"res://data/weapons/shields/shield_badge.tres",
+	"res://data/weapons/shields/shield_spikes.tres",
 ]
 
 var _inventory: Inventory = null

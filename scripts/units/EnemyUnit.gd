@@ -74,7 +74,7 @@ const ENEMY_DODGE_ANIMS := {
 }
 
 # ── Armas del pack KayKit Skeletons ──────────────────────
-const _SKEL_WEAPONS := "res://assets/KayKit_Skeletons_1.1_FREE/assets/gltf/"
+const _SKEL_WEAPONS := "res://assets/weapons/"
 
 
 func _ready() -> void:
@@ -100,23 +100,23 @@ func _equip_default_weapon() -> void:
 	var weapon_path := ""
 	match rig_name:
 		"Skeleton_Warrior":
-			weapon_path = "res://data/weapons/skeleton_blade.tres"
+			weapon_path = "res://data/weapons/swords/skeleton_blade.tres"
 			# Escudo real con WeaponData: añade armadura y la habilidad Defender
-			var shield_path := "res://data/weapons/skeleton_shield.tres"
+			var shield_path := "res://data/weapons/shields/skeleton_shield.tres"
 			if ResourceLoader.exists(shield_path):
 				var shield: WeaponData = load(shield_path) as WeaponData
 				if shield:
 					equip_weapon_data(shield, WeaponSlot.LEFT_HAND)
 		"Skeleton_Rogue":
-			weapon_path = "res://data/weapons/skeleton_bow.tres"
+			weapon_path = "res://data/weapons/bows/skeleton_bow.tres"
 		"Skeleton_Mage":
-			weapon_path = "res://data/weapons/skeleton_staff.tres"
+			weapon_path = "res://data/weapons/staves/skeleton_staff.tres"
 		"Skeleton_Minion":
-			weapon_path = "res://data/weapons/skeleton_axe.tres"
+			weapon_path = "res://data/weapons/axes/skeleton_axe.tres"
 		"Mannequin_Medium":
-			weapon_path = "res://data/weapons/mannequin_fists.tres"
+			weapon_path = "res://data/weapons/unarmed/mannequin_fists.tres"
 		_:
-			weapon_path = "res://data/weapons/skeleton_blade.tres"
+			weapon_path = "res://data/weapons/swords/skeleton_blade.tres"
 	if ResourceLoader.exists(weapon_path):
 		var weapon: WeaponData = load(weapon_path) as WeaponData
 		if weapon:

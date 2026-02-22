@@ -19,11 +19,11 @@ const C_MSG_ERR   := Color(1.0, 0.4, 0.4, 1.0)
 const PANEL_SIZE  := Vector2(1100, 580)
 
 const CATALOGO_PATHS := [
-	"res://data/weapons/bow_simple.tres",
-	"res://data/weapons/player_bow.tres",
-	"res://data/weapons/bow_longbow.tres",
-	"res://data/weapons/crossbow_1handed.tres",
-	"res://data/weapons/crossbow_2handed.tres",
+	"res://data/weapons/bows/bow_simple.tres",
+	"res://data/weapons/bows/player_bow.tres",
+	"res://data/weapons/bows/bow_longbow.tres",
+	"res://data/weapons/bows/crossbow_1handed.tres",
+	"res://data/weapons/bows/crossbow_2handed.tres",
 ]
 
 var _inventory: Inventory = null

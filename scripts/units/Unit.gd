@@ -1027,7 +1027,7 @@ func _get_bow_mesh() -> MeshInstance3D:
 
 
 ## Reproduce animación de bloqueo con tween del escudo desde (0,0,0) hasta los offsets.
-## Al terminar la animación, el escudo regresa suavemente a (0,0,0).
+## Al terminar, reproduce la animación en reversa + tween del escudo de vuelta a (0,0,0).
 ## Usado por battle_flow y weapon_preview para mantener una sola implementación.
 func play_block_animation(anim_name: String, block_pos: Vector3, block_rot: Vector3) -> void:
 	var ap: AnimationPlayer = _get_anim_ap()
@@ -1036,6 +1036,7 @@ func play_block_animation(anim_name: String, block_pos: Vector3, block_rot: Vect
 
 	# Buscar el nodo del escudo (izquierda primero, luego derecha)
 	var shield_node: Node3D = _equipped_weapon_l if is_instance_valid(_equipped_weapon_l) else _equipped_weapon_r
+	var anim_len: float = ap.get_animation(anim_name).length
 
 	# Tween de subida: 0.2s lineal hacia la posición de guardia
 	if is_instance_valid(shield_node):
@@ -1052,14 +1053,19 @@ func play_block_animation(anim_name: String, block_pos: Vector3, block_rot: Vect
 	ap.play(anim_name)
 	await ap.animation_finished
 
-	# Tween de regreso: 0.2s lineal de vuelta a (0,0,0)
+	# Regreso: animación en reversa a 5x velocidad + tween escudo sincronizado
+	var reverse_len: float = anim_len / 5.0
 	if is_instance_valid(shield_node):
 		var tw_back := create_tween()
 		tw_back.set_parallel(true)
 		tw_back.set_trans(Tween.TRANS_LINEAR)
-		tw_back.tween_property(shield_node, "position", Vector3.ZERO, 0.2)
-		tw_back.tween_property(shield_node, "rotation", Vector3.ZERO, 0.2)
-		await tw_back.finished
+		tw_back.tween_property(shield_node, "position", Vector3.ZERO, reverse_len)
+		tw_back.tween_property(shield_node, "rotation", Vector3.ZERO, reverse_len)
+
+	ap.speed_scale = 5.0
+	ap.play_backwards(anim_name)
+	await ap.animation_finished
+	ap.speed_scale = 1.0
 
 
 ## Encadena Draw → Release y lanza el proyectil al inicio del Release.
@@ -1197,7 +1203,7 @@ func _launch_arrow_rain(center_world: Vector3, aoe_radius: int = 2,
 	if weapon and not weapon.projectile_scene_path.is_empty():
 		arrow_path = weapon.projectile_scene_path
 	if arrow_path.is_empty():
-		arrow_path = "res://assets/KayKit_Adventurers_2.0_FREE/Assets/gltf/arrow_bow.gltf"
+		arrow_path = "res://assets/weapons/projectiles/adventurer/arrow_bow.gltf"
 
 	if not ResourceLoader.exists(arrow_path):
 		await get_tree().create_timer(0.6).timeout
@@ -1293,7 +1299,7 @@ func _launch_arrow_projectile(target: Unit, use_bundle: bool = false) -> void:
 
 	# Fallback genérico si no hay path en WeaponData
 	if arrow_path.is_empty():
-		arrow_path = "res://assets/KayKit_Adventurers_2.0_FREE/Assets/gltf/arrow_bow.gltf"
+		arrow_path = "res://assets/weapons/projectiles/adventurer/arrow_bow.gltf"
 
 	if not ResourceLoader.exists(arrow_path):
 		# Sin asset: esperar un tiempo fijo simulando el vuelo

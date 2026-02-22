@@ -11,24 +11,24 @@ const CHARACTERS := [
 	{
 		"label": "Mannequin Medium",
 		"scene": "res://scenes/units/PlayerMannequin.tscn",
-		"default_weapon": "res://data/weapons/mannequin_fists.tres",
+		"default_weapon": "res://data/weapons/unarmed/mannequin_fists.tres",
 	},
 	{
 		"label": "Mannequin Large",
 		"scene": "res://scenes/units/EnemyMannequinLarge.tscn",
-		"default_weapon": "res://data/weapons/mannequin_fists.tres",
+		"default_weapon": "res://data/weapons/unarmed/mannequin_fists.tres",
 	},
 ]
 
 # ── Armas establecidas ────────────────────────────────────────
 const WEAPONS := [
-	{ "label": "Puños",            "path": "res://data/weapons/mannequin_fists.tres" },
-	{ "label": "Espada 1H",        "path": "res://data/weapons/player_sword.tres" },
-	{ "label": "Daga",             "path": "res://data/weapons/player_dagger.tres" },
-	{ "label": "Hacha de Guerra",  "path": "res://data/weapons/player_axe_2h.tres" },
-	{ "label": "Arco",             "path": "res://data/weapons/player_bow.tres" },
-	{ "label": "Bastón Mágico",    "path": "res://data/weapons/player_staff.tres" },
-	{ "label": "Escudo",           "path": "res://data/weapons/player_shield.tres" },
+	{ "label": "Puños",            "path": "res://data/weapons/unarmed/mannequin_fists.tres" },
+	{ "label": "Espada 1H",        "path": "res://data/weapons/swords/player_sword.tres" },
+	{ "label": "Daga",             "path": "res://data/weapons/swords/player_dagger.tres" },
+	{ "label": "Hacha de Guerra",  "path": "res://data/weapons/axes/player_axe_2h.tres" },
+	{ "label": "Arco",             "path": "res://data/weapons/bows/player_bow.tres" },
+	{ "label": "Bastón Mágico",    "path": "res://data/weapons/staves/player_staff.tres" },
+	{ "label": "Escudo",           "path": "res://data/weapons/shields/player_shield.tres" },
 ]
 
 # Todas las animaciones disponibles para seleccionar en una ability.

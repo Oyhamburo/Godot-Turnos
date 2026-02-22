@@ -12,7 +12,7 @@ const ADVENTURER_ANIMS := {
 }
 
 # ── Armas del pack KayKit Adventurers ──────────────────────
-const _ADV_WEAPONS := "res://assets/KayKit_Adventurers_2.0_FREE/Assets/gltf/"
+const _ADV_WEAPONS := "res://assets/weapons/"
 
 # ── KayKit Character Animations 1.1 ──────────────────────
 const _CHAR_ANIM_BASE := "res://assets/KayKit_Character_Animations_1.1/Animations/gltf/Rig_Medium/"
@@ -85,9 +85,9 @@ func _equip_default_weapon() -> void:
 	var weapon_path := ""
 	match rig_name:
 		"Knight":
-			weapon_path = "res://data/weapons/player_sword.tres"
+			weapon_path = "res://data/weapons/swords/player_sword.tres"
 			# El Knight empieza con escudo en mano izquierda (WeaponData real, no cosmético)
-			var shield_path := "res://data/weapons/player_shield.tres"
+			var shield_path := "res://data/weapons/shields/player_shield.tres"
 			if ResourceLoader.exists(shield_path):
 				var shield: WeaponData = load(shield_path) as WeaponData
 				if shield:
@@ -95,17 +95,17 @@ func _equip_default_weapon() -> void:
 					inventory.add_weapon(shield)
 					equip_weapon_data(shield, WeaponSlot.LEFT_HAND)
 		"Barbarian":
-			weapon_path = "res://data/weapons/player_axe_2h.tres"
+			weapon_path = "res://data/weapons/axes/player_axe_2h.tres"
 		"Mage":
-			weapon_path = "res://data/weapons/player_staff.tres"
+			weapon_path = "res://data/weapons/staves/player_staff.tres"
 			# El libro de hechizos sigue siendo cosmético (no es arma del sistema)
 			equip_weapon(WeaponSlot.LEFT_HAND, _ADV_WEAPONS + "spellbook_open.gltf")
 		"Ranger":
-			weapon_path = "res://data/weapons/player_bow.tres"
+			weapon_path = "res://data/weapons/bows/player_bow.tres"
 		"Rogue", "Rogue_Hooded":
-			weapon_path = "res://data/weapons/player_dagger.tres"
+			weapon_path = "res://data/weapons/swords/player_dagger.tres"
 		_:
-			weapon_path = "res://data/weapons/player_sword.tres"
+			weapon_path = "res://data/weapons/swords/player_sword.tres"
 	if ResourceLoader.exists(weapon_path):
 		var weapon: WeaponData = load(weapon_path) as WeaponData
 		if weapon:
@@ -117,12 +117,12 @@ func _equip_default_weapon() -> void:
 ## Rellena el inventario con TODAS las armas disponibles del juego (para pruebas).
 func _populate_default_inventory() -> void:
 	var all_weapon_paths: Array[String] = [
-		"res://data/weapons/player_sword.tres",
-		"res://data/weapons/player_bow.tres",
-		"res://data/weapons/player_staff.tres",
-		"res://data/weapons/player_axe_2h.tres",
-		"res://data/weapons/player_dagger.tres",
-		"res://data/weapons/player_shield.tres",
+		"res://data/weapons/swords/player_sword.tres",
+		"res://data/weapons/bows/player_bow.tres",
+		"res://data/weapons/staves/player_staff.tres",
+		"res://data/weapons/axes/player_axe_2h.tres",
+		"res://data/weapons/swords/player_dagger.tres",
+		"res://data/weapons/shields/player_shield.tres",
 	]
 	for path in all_weapon_paths:
 		if ResourceLoader.exists(path):

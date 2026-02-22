@@ -106,7 +106,7 @@ func _find_anim_player_recursive(n: Node) -> AnimationPlayer:
 
 ## Equipa arma por defecto: puños pesados (UNARMED, sin modelo visual).
 func _equip_default_weapon() -> void:
-	var weapon_path := "res://data/weapons/mannequin_large_fists.tres"
+	var weapon_path := "res://data/weapons/unarmed/mannequin_large_fists.tres"
 	if ResourceLoader.exists(weapon_path):
 		var weapon: WeaponData = load(weapon_path) as WeaponData
 		if weapon:

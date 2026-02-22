@@ -32,8 +32,8 @@ func _inicializar_inventario() -> void:
 	player_inventory = Inventory.new()
 	player_inventory.gold = 150
 	# Arma inicial (Knight por defecto)
-	_agregar_arma("res://data/weapons/player_sword.tres", true)   # equipped_right
-	_agregar_arma("res://data/weapons/player_shield.tres", false)  # equipped_left
+	_agregar_arma("res://data/weapons/swords/player_sword.tres", true)   # equipped_right
+	_agregar_arma("res://data/weapons/shields/player_shield.tres", false)  # equipped_left
 	# Pociones iniciales
 	_agregar_item("res://data/items/pocion_vida.tres")
 	_agregar_item("res://data/items/pocion_vida.tres")
